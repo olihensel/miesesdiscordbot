@@ -92,7 +92,7 @@ client.on('ready', async () => {
             topReaction?.inCurrentRange
           } mal)`
         : '*keines*'
-    }\n\nHochachtungsvoll, Quatschbot`;
+    }\n\n<:peepoQuatsch:875141585224994837>`;
     console.log(message);
 
     const randomChannel = faker.random.arrayElement(Array.from(client.channels.cache.values()).filter((i) => i.isText()));
