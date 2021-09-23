@@ -144,7 +144,7 @@ function analyze(
     emotes = Array.from(emotesRegexExecArr);
   }
 
-  for (const word of uniq(words)) {
+  for (const word of uniq(words.map((w) => w.toUpperCase()))) {
     wordMap.set(word, (wordMap.get(word) ?? 0) + 1);
   }
   for (const emote of uniq(emotes)) {
