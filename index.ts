@@ -1,6 +1,5 @@
 require('dotenv').config();
 import { Client, Intents } from 'discord.js';
-import * as faker from 'faker';
 import { head, orderBy, uniq } from 'lodash';
 import moment from 'moment';
 
@@ -94,10 +93,14 @@ client.on('ready', async () => {
         : '*keines*'
     }\n\n<:peepoQuatsch:875141585224994837>`;
     console.log(message);
-
-    const randomChannel = faker.random.arrayElement(Array.from(client.channels.cache.values()).filter((i) => i.isText()));
-    if (randomChannel?.isText()) {
-      await randomChannel.send(message);
+    const user = guild.client.user;
+    if (user) {
+      const channel = orderBy(Array.from(guild.channels.cache.values()), 'position').find(
+        (c) => c.isText() && (c.permissionsFor(user)?.has('SEND_MESSAGES') ?? false),
+      );
+      if (channel?.isText()) {
+        await channel.send(message);
+      }
     }
   }
   client.destroy();
