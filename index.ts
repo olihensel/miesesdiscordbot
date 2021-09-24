@@ -57,7 +57,7 @@ client.on('ready', async () => {
       console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isText(), channel.isThread());
 
       if (channel.isText()) {
-        const limit = 50;
+        const limit = 100;
         let lastLength = limit;
         let lastOldest: string | undefined;
         let lastOldestDate: Date | undefined;
