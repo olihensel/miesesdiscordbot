@@ -112,29 +112,33 @@ client.on('ready', async () => {
     const topWord = head(orderBy(wordFactors, 'inCurrentRange', 'desc'));
     const topReaction = head(orderBy(reactionsFactors, 'inCurrentRange', 'desc'));
 
-    const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}\n\n- Wort des Tages: ${
+    const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}
+
+- Wort des Tages: ${
       (topWordNewcomer?.increaseFactorAverage ?? 0) > 1
         ? `${topWordNewcomer?.text} (+${(100 * (topWordNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
             topWordNewcomer?.inCurrentRange
           }x)`
         : '*keines*'
-    }\n- Emote des Tages: ${
-      (topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'
-    }\n- Emote-Newcomer des Tages: ${
+    }
+- Emote des Tages: ${(topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'}
+- Emote-Newcomer des Tages: ${
       (topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1
         ? `${topEmoteNewcomer?.text} (+${(100 * (topEmoteNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
             topEmoteNewcomer?.inCurrentRange
           }x)`
         : '*keines*'
-    }\n- Reaction des Tages: ${
-      (topReaction?.inCurrentRange ?? 0) > 1 ? `${topReaction?.text} (${topReaction?.inCurrentRange}x)` : '*keines*'
-    }\n- Reaction-Newcomer des Tages: ${
+    }
+- Reaction des Tages: ${(topReaction?.inCurrentRange ?? 0) > 1 ? `${topReaction?.text} (${topReaction?.inCurrentRange}x)` : '*keines*'}
+- Reaction-Newcomer des Tages: ${
       (topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
         ? `${topReactionNewcomer?.text} (+${(100 * (topReactionNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
             topReactionNewcomer?.inCurrentRange
           }x)`
         : '*keines*'
-    }\n\n<:peepoQuatsch:875141585224994837>`;
+    }
+
+<:peepoQuatsch:875141585224994837>`;
     console.log(message);
 
     await channelToSendTo.send(message);
