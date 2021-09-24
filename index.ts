@@ -1,5 +1,5 @@
 require('dotenv').config();
-import { Client, Intents } from 'discord.js';
+import { Client, GuildChannel, Intents, TextChannel } from 'discord.js';
 import { head, orderBy, uniq } from 'lodash';
 import moment from 'moment';
 
@@ -7,12 +7,12 @@ const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
-
-  const minDateFullRange = moment().subtract(1, 'month');
-  const minDataCurrentRange = moment().subtract(1, 'day');
+  const startOfDay = moment().startOf('day');
+  const minDateFullRange = moment(startOfDay).subtract(1, 'month');
+  const minDataCurrentRange = moment(startOfDay).subtract(1, 'day');
 
   const secondsFullRange = minDataCurrentRange.unix() - minDateFullRange.unix();
-  const secondsCurrentRange = moment().unix() - minDataCurrentRange.unix();
+  const secondsCurrentRange = moment(startOfDay).unix() - minDataCurrentRange.unix();
   const currentRangesInFullRange = secondsFullRange / secondsCurrentRange;
 
   for (const [, guild] of client.guilds.cache) {
@@ -25,7 +25,34 @@ client.on('ready', async () => {
     const wordMapCurrentRange = new Map<string, number>();
     const emoteMapCurrentRange = new Map<string, number>();
     const reactionMapCurrentRange = new Map<string, number>();
+    const seenMessages = new Set<string>();
 
+    const user = guild.client.user;
+    let channelToSendTo: TextChannel | undefined;
+    if (user) {
+      const channelsWithPos = guild.channels.cache.map((channel) => ({
+        channel,
+        parentPos: (!channel.parent?.parent && channel.parent?.position) || 99999999,
+        position: (channel as GuildChannel).position,
+        hasWritePermission: channel.permissionsFor(user)?.has('SEND_MESSAGES') ?? false,
+        rawPosition: (channel as GuildChannel).rawPosition,
+        isText: channel.isText(),
+        isThread: channel.isThread(),
+      }));
+      console.log(channelsWithPos);
+      const orderedChannels = orderBy(
+        channelsWithPos.filter((c) => c.isText && c.hasWritePermission && !c.isThread),
+        ['rawPosition'],
+      );
+      // isThread is false!, isText is true
+      channelToSendTo = orderedChannels[0]?.channel as TextChannel;
+
+      console.log(channelToSendTo);
+    }
+    if (!channelToSendTo) {
+      console.log('no suitable channel found');
+      continue;
+    }
     for (const [, channel] of await guild.channels.cache) {
       console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isText(), channel.isThread());
 
@@ -33,14 +60,21 @@ client.on('ready', async () => {
         const limit = 50;
         let lastLength = limit;
         let lastOldest: string | undefined;
+        let lastOldestDate: Date | undefined;
         while (lastLength >= limit) {
           try {
             const messages = await channel.messages.fetch({ limit, ...(lastOldest ? { before: lastOldest } : {}) });
             let count = 0;
             for (const [, message] of messages) {
+              if (seenMessages.has(message.id)) {
+                console.log('duplicate', message.id);
+                continue;
+              }
+              seenMessages.add(message.id);
               if (moment(message.createdAt).isAfter(minDateFullRange)) {
                 count++;
                 lastOldest = message.id;
+                lastOldestDate = message.createdAt;
                 const reactions = Array.from(message.reactions.cache.entries()).map(([reaction, reactionInfo]) => ({
                   key: reaction,
                   count: reactionInfo.count,
@@ -48,15 +82,17 @@ client.on('ready', async () => {
 
                 const sanitizedMessageContent = message.content.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
                 // add to map depending on date range
-                if (moment(message.createdAt).isAfter(minDataCurrentRange)) {
-                  analyze(sanitizedMessageContent, reactions, wordMapCurrentRange, emoteMapCurrentRange, reactionMapCurrentRange);
-                } else {
-                  analyze(sanitizedMessageContent, reactions, wordMapFullRange, emoteMapFullRange, reactionMapFullRange);
+                if (moment(message.createdAt).isBefore(startOfDay)) {
+                  if (moment(message.createdAt).isAfter(minDataCurrentRange)) {
+                    analyze(sanitizedMessageContent, reactions, wordMapCurrentRange, emoteMapCurrentRange, reactionMapCurrentRange);
+                  } else {
+                    analyze(sanitizedMessageContent, reactions, wordMapFullRange, emoteMapFullRange, reactionMapFullRange);
+                  }
                 }
               }
             }
             lastLength = count;
-            console.log({ lastLength, lastOldest });
+            console.log(JSON.stringify({ lastLength, lastOldest, lastOldestDate }));
           } catch (e) {
             lastLength = 0;
           }
@@ -77,7 +113,7 @@ client.on('ready', async () => {
     console.log(orderedWords);
     console.log(orderedReactions);
 
-    const message = `Quatsch des Tages für ${moment().subtract(1, 'day').format('DD.MM.YYYY')}\n\n- Wort des Tages: ${
+    const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}\n\n- Wort des Tages: ${
       (topWord?.increaseFactorAverage ?? 0) > 1
         ? `${topWord?.text} (+${(100 * (topWord?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, insg. ${topWord?.inCurrentRange} mal)`
         : '*keines*'
@@ -93,15 +129,8 @@ client.on('ready', async () => {
         : '*keines*'
     }\n\n<:peepoQuatsch:875141585224994837>`;
     console.log(message);
-    const user = guild.client.user;
-    if (user) {
-      const channel = orderBy(Array.from(guild.channels.cache.values()), 'position').find(
-        (c) => c.isText() && (c.permissionsFor(user)?.has('SEND_MESSAGES') ?? false),
-      );
-      if (channel?.isText()) {
-        await channel.send(message);
-      }
-    }
+
+    await channelToSendTo.send(message);
   }
   client.destroy();
 });
@@ -147,9 +176,10 @@ function analyze(
     emotes = Array.from(emotesRegexExecArr);
   }
 
-  for (const word of uniq(words.map((w) => w.toUpperCase()))) {
+  for (const word of uniq(words.map((w) => w.toLowerCase()))) {
     wordMap.set(word, (wordMap.get(word) ?? 0) + 1);
   }
+
   for (const emote of uniq(emotes)) {
     emoteMap.set(emote, (emoteMap.get(emote) ?? 0) + 1);
   }
