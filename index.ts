@@ -39,7 +39,7 @@ client.on('ready', async () => {
         isText: channel.isText(),
         isThread: channel.isThread(),
       }));
-      console.log(channelsWithPos);
+
       const orderedChannels = orderBy(
         channelsWithPos.filter((c) => c.isText && c.hasWritePermission && !c.isThread),
         ['rawPosition'],
@@ -76,7 +76,8 @@ client.on('ready', async () => {
                 lastOldest = message.id;
                 lastOldestDate = message.createdAt;
                 const reactions = Array.from(message.reactions.cache.entries()).map(([reaction, reactionInfo]) => ({
-                  key: reaction,
+                  key: reactionInfo.emoji?.id ? `<:${reactionInfo.emoji.name}:${reactionInfo.emoji.id}>` : reaction,
+
                   count: reactionInfo.count,
                 }));
 
@@ -109,9 +110,9 @@ client.on('ready', async () => {
     const topWord = head(orderedWords);
     const orderedReactions = orderBy(reactionsFactors, 'increaseFactorAverage', 'desc');
     const topReaction = head(orderedReactions);
-    console.log(orderedEmotes);
-    console.log(orderedWords);
-    console.log(orderedReactions);
+    console.log(orderedEmotes.slice(0, 5));
+    console.log(orderedWords.slice(0, 5));
+    console.log(orderedReactions.slice(0, 5));
 
     const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}\n\n- Wort des Tages: ${
       (topWord?.increaseFactorAverage ?? 0) > 1
@@ -185,8 +186,7 @@ function analyze(
   }
 
   for (const reaction of reactions) {
-    const reactionKey = /^\d{10,}$/.test(reaction.key) ? `<:id:${reaction.key}>` : reaction.key;
-    reactionMap.set(reactionKey, (reactionMap.get(reactionKey) ?? 0) + reaction.count);
+    reactionMap.set(reaction.key, (reactionMap.get(reaction.key) ?? 0) + reaction.count);
   }
 }
 client.login(process.env.DISCORD_BOT_TOKEN);
