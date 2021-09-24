@@ -8,7 +8,7 @@ const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
 client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
   const startOfDay = moment().startOf('day');
-  const minDateFullRange = moment(startOfDay).subtract(1, 'month');
+  const minDateFullRange = moment(startOfDay).subtract(2, 'weeks');
   const minDataCurrentRange = moment(startOfDay).subtract(1, 'day');
 
   const secondsFullRange = minDataCurrentRange.unix() - minDateFullRange.unix();
