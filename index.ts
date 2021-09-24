@@ -104,29 +104,35 @@ client.on('ready', async () => {
     const wordFactors = calculateFactorsForUsageMaps(wordMapCurrentRange, wordMapFullRange, currentRangesInFullRange);
     const reactionsFactors = calculateFactorsForUsageMaps(reactionMapCurrentRange, reactionMapFullRange, currentRangesInFullRange);
 
-    const orderedEmotes = orderBy(emoteFactors, 'increaseFactorAverage', 'desc');
-    const topEmote = head(orderedEmotes);
-    const orderedWords = orderBy(wordFactors, 'increaseFactorAverage', 'desc');
-    const topWord = head(orderedWords);
-    const orderedReactions = orderBy(reactionsFactors, 'increaseFactorAverage', 'desc');
-    const topReaction = head(orderedReactions);
-    console.log(orderedEmotes.slice(0, 5));
-    console.log(orderedWords.slice(0, 5));
-    console.log(orderedReactions.slice(0, 5));
+    const topEmoteNewcomer = head(orderBy(emoteFactors, 'increaseFactorAverage', 'desc'));
+    const topWordNewcomer = head(orderBy(wordFactors, 'increaseFactorAverage', 'desc'));
+    const topReactionNewcomer = head(orderBy(reactionsFactors, 'increaseFactorAverage', 'desc'));
+
+    const topEmote = head(orderBy(emoteFactors, 'inCurrentRange', 'desc'));
+    const topWord = head(orderBy(wordFactors, 'inCurrentRange', 'desc'));
+    const topReaction = head(orderBy(reactionsFactors, 'inCurrentRange', 'desc'));
 
     const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}\n\n- Wort des Tages: ${
-      (topWord?.increaseFactorAverage ?? 0) > 1
-        ? `${topWord?.text} (+${(100 * (topWord?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, insg. ${topWord?.inCurrentRange} mal)`
+      (topWordNewcomer?.increaseFactorAverage ?? 0) > 1
+        ? `${topWordNewcomer?.text} (+${(100 * (topWordNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
+            topWordNewcomer?.inCurrentRange
+          }x)`
         : '*keines*'
     }\n- Emote des Tages: ${
-      (topEmote?.increaseFactorAverage ?? 0) > 1
-        ? `${topEmote?.text} (+${(100 * (topEmote?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, insg. ${topEmote?.inCurrentRange} mal)`
+      (topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'
+    }\n- Emote-Newcomer des Tages: ${
+      (topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1
+        ? `${topEmoteNewcomer?.text} (+${(100 * (topEmoteNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
+            topEmoteNewcomer?.inCurrentRange
+          }x)`
         : '*keines*'
     }\n- Reaction des Tages: ${
-      (topReaction?.increaseFactorAverage ?? 0) > 1
-        ? `${topReaction?.text} (+${(100 * (topReaction?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, insg. ${
-            topReaction?.inCurrentRange
-          } mal)`
+      (topReaction?.inCurrentRange ?? 0) > 1 ? `${topReaction?.text} (${topReaction?.inCurrentRange}x)` : '*keines*'
+    }\n- Reaction-Newcomer des Tages: ${
+      (topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
+        ? `${topReactionNewcomer?.text} (+${(100 * (topReactionNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
+            topReactionNewcomer?.inCurrentRange
+          }x)`
         : '*keines*'
     }\n\n<:peepoQuatsch:875141585224994837>`;
     console.log(message);
