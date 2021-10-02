@@ -1,7 +1,10 @@
 require('dotenv').config();
 import { Client, GuildChannel, Intents, TextChannel } from 'discord.js';
+import { appendFileSync } from 'fs';
 import { head, orderBy, uniq } from 'lodash';
 import moment from 'moment';
+
+const logfile = '.history.jsonlist';
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
 
@@ -142,6 +145,17 @@ client.on('ready', async () => {
     console.log(message);
 
     await channelToSendTo.send(message);
+    appendFileSync(
+      logfile,
+      JSON.stringify({
+        date: startOfDay.toISOString(),
+        guildId: guild.id,
+        guildName: guild.name,
+        emoteFactors: emoteFactors.slice(0, 5),
+        wordFactors: wordFactors.slice(0, 5),
+        reactionsFactors: reactionsFactors.slice(0, 5),
+      }) + '\n',
+    );
   }
   client.destroy();
 });
