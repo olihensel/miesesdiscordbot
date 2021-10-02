@@ -151,9 +151,12 @@ client.on('ready', async () => {
         date: startOfDay.toISOString(),
         guildId: guild.id,
         guildName: guild.name,
-        emoteFactors: emoteFactors.slice(0, 5),
-        wordFactors: wordFactors.slice(0, 5),
-        reactionsFactors: reactionsFactors.slice(0, 5),
+        topEmoteNewcomers: orderBy(emoteFactors, 'increaseFactorAverage', 'desc').slice(0, 5),
+        topWordNewcomer: orderBy(wordFactors, 'increaseFactorAverage', 'desc').slice(0, 5),
+        topReactionNewcomer: orderBy(reactionsFactors, 'increaseFactorAverage', 'desc').slice(0, 5),
+        topEmote: orderBy(emoteFactors, 'inCurrentRange', 'desc').slice(0, 5),
+        topWord: orderBy(wordFactors, 'inCurrentRange', 'desc').slice(0, 5),
+        topReaction: orderBy(reactionsFactors, 'inCurrentRange', 'desc').slice(0, 5),
       }) + '\n',
     );
   }
