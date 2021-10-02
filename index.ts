@@ -4,7 +4,7 @@ import { appendFileSync } from 'fs';
 import { head, orderBy, uniq } from 'lodash';
 import moment from 'moment';
 
-const logfile = '.history.jsonlist';
+const logfile = './history.jsonlist';
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
 
