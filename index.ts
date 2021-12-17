@@ -193,9 +193,10 @@ function analyze(
   emoteMap: Map<string, number>,
   reactionMap: Map<string, number>,
 ) {
-  const emotesRegexExecArr = /(<:[a-zA-Z0-9]+:\d+>)/g.exec(message);
+  // alphanum and underscore https://support.discord.com/hc/de/articles/360036479811-Personalisierte-Emojis
+  const emotesRegexExecArr = /(<:[a-zA-Z0-9_]+:\d+>)/g.exec(message);
   const words = message
-    .replace(/<:[a-zA-Z0-9]+:\d+>/g, '')
+    .replace(/<:[a-zA-Z0-9_]+:\d+>/g, '')
     .replace(/<@[!&]\d+>/g, '')
     .split(/[^0-9a-zA-ZäöüÄÖÜß]/)
     .filter((s) => s.length > 1);
