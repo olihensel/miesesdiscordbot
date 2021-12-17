@@ -193,7 +193,6 @@ function analyze(
   emoteMap: Map<string, number>,
   reactionMap: Map<string, number>,
 ) {
-  // alphanum and underscore https://support.discord.com/hc/de/articles/360036479811-Personalisierte-Emojis
   const emotesRegexExecArr = /(<:[a-zA-Z0-9_~\-+]+:\d+>)/g.exec(message);
   const words = message
     .replace(/<:[a-zA-Z0-9_~\-+]+:\d+>/g, '')
