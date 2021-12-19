@@ -118,26 +118,16 @@ client.on('ready', async () => {
     const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}
 
 - Wort des Tages: ${
-      (topWordNewcomer?.increaseFactorAverage ?? 0) > 1
-        ? `${topWordNewcomer?.text} (+${(100 * (topWordNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
-            topWordNewcomer?.inCurrentRange
-          }x)`
-        : '*keines*'
+      (topWordNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordNewcomer?.text} (${topWordNewcomer?.inCurrentRange}x)` : '*keines*'
     }
 - Emote des Tages: ${(topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'}
 - Emote-Newcomer des Tages: ${
-      (topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1
-        ? `${topEmoteNewcomer?.text} (+${(100 * (topEmoteNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
-            topEmoteNewcomer?.inCurrentRange
-          }x)`
-        : '*keines*'
+      (topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topEmoteNewcomer?.text} (${topEmoteNewcomer?.inCurrentRange}x)` : '*keines*'
     }
 - Reaction des Tages: ${(topReaction?.inCurrentRange ?? 0) > 1 ? `${topReaction?.text} (${topReaction?.inCurrentRange}x)` : '*keines*'}
 - Reaction-Newcomer des Tages: ${
       (topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
-        ? `${topReactionNewcomer?.text} (+${(100 * (topReactionNewcomer?.increaseFactorAverage ?? 0) - 100).toFixed(0)}%, ${
-            topReactionNewcomer?.inCurrentRange
-          }x)`
+        ? `${topReactionNewcomer?.text} (${topReactionNewcomer?.inCurrentRange}x)`
         : '*keines*'
     }
 
