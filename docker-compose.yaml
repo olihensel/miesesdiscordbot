@@ -1,0 +1,30 @@
+services:
+  grafana:
+    image: grafana/grafana-oss:8.3.3-ubuntu
+    container_name: grafana
+    ports:
+      - 3000:3000
+    links:
+      - postgres
+    volumes:
+      - './data/grafana:/var/lib/grafana'
+  postgres:
+    image: postgres:14.1-bullseye
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - 127.0.0.1:5432:5432
+    volumes:
+      - './data/pg:/var/lib/postgresql/data'
+  adminer:
+    image: adminer
+    restart: always
+    links:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - 3001:8080
