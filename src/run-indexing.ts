@@ -72,11 +72,11 @@ client.on('ready', async () => {
                   }),
                 );
                 let mentions = uniqBy(
-                  Array.from(message.mentions.members?.entries() ?? []).map(([_, mentionedMemberInfo]) => {
+                  Array.from(message.mentions.users?.entries() ?? []).map(([_, mentionedMemberInfo]) => {
                     return createInstance(DiscordUser, {
-                      id: mentionedMemberInfo.user.id,
-                      displayName: guild.members.cache.get(mentionedMemberInfo.user.id)?.nickname ?? mentionedMemberInfo.user.username,
-                      username: mentionedMemberInfo.user.tag,
+                      id: mentionedMemberInfo.id,
+                      displayName: guild.members.cache.get(mentionedMemberInfo.id)?.nickname ?? mentionedMemberInfo.username,
+                      username: mentionedMemberInfo.tag,
                     });
                   }),
                   'id',
