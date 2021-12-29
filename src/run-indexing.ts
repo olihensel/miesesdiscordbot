@@ -111,6 +111,8 @@ client.on('ready', async () => {
                     from,
                     mentions,
                     plainText: message.content,
+                    messageLength: message.content.trim().length,
+                    wordCount: unorderedWords.length,
                     reactions: [],
                     timestamp: message.createdAt,
                     words,

@@ -33,6 +33,12 @@ export class DiscordMessage {
   emotes!: string[];
 
   @Column({ nullable: false })
+  messageLength!: number;
+
+  @Column({ nullable: false })
+  wordCount!: number;
+
+  @Column({ nullable: false })
   @Index({ unique: false })
   timestamp!: Date;
 }

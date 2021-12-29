@@ -36,6 +36,8 @@ createConnection({ ...ormConfig, type: 'postgres', namingStrategy: new SnakeNami
       plainText: 'das ist ein text',
       words: ['das', 'ist', 'ein', 'text'],
       reactions: [],
+      messageLength: 0,
+      wordCount: 0,
       timestamp: new Date(),
     });
 
