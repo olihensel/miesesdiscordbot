@@ -1,7 +1,7 @@
 require('dotenv').config();
 import { Client, GuildChannel, Intents, TextChannel } from 'discord.js';
 import { appendFileSync } from 'fs';
-import { head, orderBy, uniq } from 'lodash';
+import { compact, head, orderBy, uniq } from 'lodash';
 import moment from 'moment';
 
 const logfile = './history.jsonlist';
@@ -183,16 +183,20 @@ function analyze(
   emoteMap: Map<string, number>,
   reactionMap: Map<string, number>,
 ) {
-  const emotesRegexExecArr = /(<:[a-zA-Z0-9_~\-+]+:\d+>)/g.exec(message);
+  const emoteRegex = /(<:[a-zA-Z0-9_~\-+]+:\d+>)/g;
+  let match;
+  let emotes: string[] = [];
+  while ((match = emoteRegex.exec(message))) {
+    emotes.push(match?.[1]);
+  }
+  if (emotes) {
+    emotes = uniq(compact(emotes));
+  }
   const words = message
-    .replace(/<:[a-zA-Z0-9_~\-+]+:\d+>/g, '')
-    .replace(/<@[!&]\d+>/g, '')
+    .replace(/<:[a-zA-Z0-9_~\-+]+:\d+>/g, '') // emotes
+    .replace(/<@[!&]\d+>/g, '') // mentiones
     .split(/[^0-9a-zA-ZäöüÄÖÜß]/)
     .filter((s) => s.length > 1);
-  let emotes: string[] = [];
-  if (emotesRegexExecArr) {
-    emotes = Array.from(emotesRegexExecArr);
-  }
 
   for (const word of uniq(words.map((w) => w.toLowerCase()))) {
     wordMap.set(word, (wordMap.get(word) ?? 0) + 1);
