@@ -31,8 +31,8 @@ client.on('ready', async () => {
     }
 
     const seenMessages = new Set<string>();
-    // build cache of all members
-    await guild.members.list({ limit: 1000 });
+    // build cache of all members DiscordAPIError: Missing Access
+    // await guild.members.list({ limit: 1000 });
 
     for (const [, channel] of await guild.channels.cache) {
       console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isText(), channel.isThread());
@@ -105,8 +105,8 @@ client.on('ready', async () => {
 
                 const words = uniq(unorderedWords.map((w) => w.toLowerCase()));
 
-                await connection.manager.save(
-                  createInstance(DiscordMessage, {
+                const dbMessage = await connection.manager.save(
+                  createInstance(DiscordMessage, <DiscordMessage>{
                     id: message.id,
                     channel: dbChannel,
                     emotes,
@@ -115,20 +115,18 @@ client.on('ready', async () => {
                     plainText: message.content,
                     messageLength: message.content.trim().length,
                     wordCount: unorderedWords.length,
-                    reactions: [],
                     timestamp: message.createdAt,
                     words,
                   }),
                 );
-                const dbMessage = await connection.manager.findOneOrFail(DiscordMessage, message.id);
+                await connection.manager.delete(DiscordReaction, { message: { id: message.id } });
 
-                await connection.manager.delete(DiscordReaction, { message: dbMessage });
-                const reactions = Array.from(message.reactions.cache.entries()).map(([reaction, reactionInfo]) => {
+                const reactionPromises = Array.from(await message.reactions.cache.entries()).map(async ([reaction, reactionInfo]) => {
                   return createInstance(DiscordReaction, {
                     count: reactionInfo.count,
                     emote: reactionInfo.emoji?.name ?? reaction,
                     message: dbMessage,
-                    users: reactionInfo.users.cache.map((user) => {
+                    users: (await reactionInfo.users.fetch({ limit: 100 })).map((user) => {
                       return createInstance(DiscordUser, {
                         id: user.id,
                         displayName: guild.members.cache.get(user.id)?.nickname ?? user.username,
@@ -137,6 +135,7 @@ client.on('ready', async () => {
                     }),
                   });
                 });
+                const reactions = await Promise.all(reactionPromises);
 
                 if (reactions.length > 0) {
                   const reactionUsers = uniqBy(
@@ -153,6 +152,7 @@ client.on('ready', async () => {
             lastLength = count;
             console.log(JSON.stringify({ lastLength, lastOldest, lastOldestDate }));
           } catch (e) {
+            console.error(e);
             lastLength = 0;
           }
         }
