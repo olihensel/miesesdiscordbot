@@ -31,6 +31,8 @@ client.on('ready', async () => {
     }
 
     const seenMessages = new Set<string>();
+    // build cache of all members
+    await guild.members.list({ limit: 1000 });
 
     for (const [, channel] of await guild.channels.cache) {
       console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isText(), channel.isThread());
@@ -126,9 +128,24 @@ client.on('ready', async () => {
                     count: reactionInfo.count,
                     emote: reactionInfo.emoji?.name ?? reaction,
                     message: dbMessage,
+                    users: reactionInfo.users.cache.map((user) => {
+                      return createInstance(DiscordUser, {
+                        id: user.id,
+                        displayName: guild.members.cache.get(user.id)?.nickname ?? user.username,
+                        username: user.tag,
+                      });
+                    }),
                   });
                 });
+
                 if (reactions.length > 0) {
+                  const reactionUsers = uniqBy(
+                    reactions.flatMap((r) => r.users ?? []),
+                    'id',
+                  );
+                  if (reactionUsers.length > 0) {
+                    await connection.manager.save(reactionUsers);
+                  }
                   await connection.manager.save(reactions);
                 }
               }

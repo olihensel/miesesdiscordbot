@@ -1,5 +1,6 @@
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { DiscordMessage } from './discord-message';
+import { DiscordUser } from './discord-user';
 
 @Entity()
 export class DiscordReaction {
@@ -16,4 +17,8 @@ export class DiscordReaction {
   @Column({ nullable: false })
   @Index({ unique: false })
   count!: number;
+
+  @ManyToMany(() => DiscordUser)
+  @JoinTable({ name: 'discord_reaction_users' })
+  users?: DiscordUser[];
 }
