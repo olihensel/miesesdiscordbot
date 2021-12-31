@@ -50,7 +50,7 @@ client.on('ready', async () => {
       msg.channelId === '890737558894567554'
     ) {
       const buffer = await generateStats(msg.author.id);
-      const member = msg.author?.username;
+      const member = msg.author?.username.replace(/[\W_]+/g, '');
 
       // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
       await msg.reply({
@@ -400,7 +400,7 @@ export async function generateStats(userId: string) {
           <br />
           <br />
           <span style="overflow-wrap: break-word; word-wrap: break-word; ">"${
-            dcMessage?.type === 'GUILD_MEMBER_JOIN' ? 'ist dem Server beigetreten.' : mostReactedMessage?.plain_text ?? 'Kein Inhalt'
+            dcMessage?.type === 'GUILD_MEMBER_JOIN' ? 'ist dem Server beigetreten.' : mostReactedMessage?.plain_text || '-- Kein Inhalt --'
           }" am ${moment(mostReactedMessage?.timestamp).format('DD.MM.YYYY')} um ${moment(mostReactedMessage?.timestamp).format('HH:mm')}${
                 dcMessage?.channel &&
                 dcMessage.channel.isText() &&
