@@ -45,12 +45,13 @@ client.on('ready', async () => {
   client.on('messageCreate', async (msg) => {
     if (msg.content === '!recap' && msg.channel.isText() && msg.guildId === suuncordServerId && msg.channelId === '926423405668995073') {
       try {
-        const buffer = await generateStats(msg.author.id);
+        const stats = await generateStats(msg.author.id);
         const member = msg.author?.username.replace(/[\W_]+/g, '');
 
         // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
         await msg.reply({
-          files: [{ attachment: buffer, name: `SUUNCORD-Recap-2021_${member}.png` }],
+          content: stats.mostLikedMessageUrl ? `Link zu deiner beliebtesten Nachricht ${stats.mostLikedMessageUrl}` : undefined,
+          files: [{ attachment: stats.buffer, name: `SUUNCORD-Recap-2021_${member}.png` }],
         });
       } catch (e: unknown) {
         console.error(e);
@@ -572,6 +573,7 @@ export async function generateStats(userId: string) {
 `;
   content = replaceEmotesInHtml(content);
   content = await replaceMentionsInHtml(content);
+  content = await replaceChannelsInHtml(content);
   // writeFileSync('recap.html', content);
 
   await page.setContent(content);
@@ -581,7 +583,7 @@ export async function generateStats(userId: string) {
   writeFileSync(`data/recap_${(member.nickname ?? member.user.tag)?.replace(/[\W_]+/g, '')}_${userId}.png`, buffer);
   console.log('done');
   await browser.close();
-  return buffer;
+  return { buffer, mostLikedMessageUrl: dcMessage ? dcMessage.url : undefined };
 }
 
 function replaceEmotesInHtml(message: string): string {
