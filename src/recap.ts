@@ -43,12 +43,7 @@ client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
   // const channel = client.guilds.cache.get('703705066351362068')?.channels.cache.get('890737558894567554');
   client.on('messageCreate', async (msg) => {
-    if (
-      msg.content === '!recap' &&
-      msg.channel.isText() &&
-      msg.guildId === '703705066351362068' &&
-      msg.channelId === '890737558894567554'
-    ) {
+    if (msg.content === '!recap' && msg.channel.isText() && msg.guildId === suuncordServerId && msg.channelId === '926423405668995073') {
       try {
         const buffer = await generateStats(msg.author.id);
         const member = msg.author?.username.replace(/[\W_]+/g, '');
