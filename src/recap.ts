@@ -49,13 +49,18 @@ client.on('ready', async () => {
       msg.guildId === '703705066351362068' &&
       msg.channelId === '890737558894567554'
     ) {
-      const buffer = await generateStats(msg.author.id);
-      const member = msg.author?.username.replace(/[\W_]+/g, '');
+      try {
+        const buffer = await generateStats(msg.author.id);
+        const member = msg.author?.username.replace(/[\W_]+/g, '');
 
-      // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
-      await msg.reply({
-        files: [{ attachment: buffer, name: `SUUNCORD-Recap-2021_${member}.png` }],
-      });
+        // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
+        await msg.reply({
+          files: [{ attachment: buffer, name: `SUUNCORD-Recap-2021_${member}.png` }],
+        });
+      } catch (e) {
+        console.error(e);
+        await msg.reply({ content: 'A Error occured while generating the recap: ' + e.message });
+      }
       /*
       await msg.author
         ?.send(
