@@ -372,7 +372,7 @@ export async function generateStats(userId: string) {
         <hr width="100%" />
         <div class="emotecontainer">
           <div class="leftemote">
-            <span style="margin-bottom: 8px"><strong>Liebings-Emotes</strong></span>
+            <span style="margin-bottom: 8px"><strong>Lieblings-Emotes</strong></span>
             <ol style="margin: 0px; font-size: 2em;">
               ${(
                 await Promise.all(
