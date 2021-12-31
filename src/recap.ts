@@ -57,9 +57,9 @@ client.on('ready', async () => {
         await msg.reply({
           files: [{ attachment: buffer, name: `SUUNCORD-Recap-2021_${member}.png` }],
         });
-      } catch (e) {
+      } catch (e: unknown) {
         console.error(e);
-        await msg.reply({ content: 'A Error occured while generating the recap: ' + e.message });
+        await msg.reply({ content: 'A Error occured while generating the recap: ' + (e as any)?.message });
       }
       /*
       await msg.author
