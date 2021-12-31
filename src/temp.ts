@@ -23,7 +23,6 @@ client.on('ready', async () => {
       continue;
     }
 
-    const seenMessages = new Set<string>();
     // build cache of all members DiscordAPIError: Missing Access
     console.log(
       (await guild.members.list({ limit: 1000 })).map((m) => ({

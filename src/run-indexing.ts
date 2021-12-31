@@ -88,18 +88,19 @@ client.on('ready', async () => {
                 }
                 const sanitizedMessageContent = message.content.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
 
-                const emoteRegex = /<:([a-zA-Z0-9_~\-+]+):\d+>/g;
+                const emoteRegex = /<a?:([a-zA-Z0-9_~\-+]+):\d+>/g;
                 let match;
                 let emotes: string[] = [];
                 while ((match = emoteRegex.exec(sanitizedMessageContent))) {
                   emotes.push(match?.[1]);
                 }
                 if (emotes) {
-                  emotes = uniq(compact(emotes));
+                  emotes = compact(emotes);
                 }
                 const unorderedWords = sanitizedMessageContent
-                  .replace(/<:[a-zA-Z0-9_~\-+]+:\d+>/g, '') // emotes
+                  .replace(/<a?:[a-zA-Z0-9_~\-+]+:\d+>/g, '') // emotes
                   .replace(/<@[!&]\d+>/g, '') // mentiones
+                  .replace(/<#[!&]\d+>/g, '') // channel-links
                   .split(/[^0-9a-zA-ZäöüÄÖÜß]/)
                   .filter((s) => s.length > 1);
 
