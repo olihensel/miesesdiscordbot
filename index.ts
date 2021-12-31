@@ -194,8 +194,8 @@ function analyze(
   }
   const words = message
     .replace(/<a?:[a-zA-Z0-9_~\-+]+:\d+>/g, '') // emotes
-    .replace(/<@[!&]\d+>/g, '') // mentiones
-    .replace(/<#[!&]\d+>/g, '') // channel-links
+    .replace(/<@[!&]?\d+>/g, '') // mentiones
+    .replace(/<#[!&]?\d+>/g, '') // channel-links
     .split(/[^0-9a-zA-ZäöüÄÖÜß]/)
     .filter((s) => s.length > 1);
 
