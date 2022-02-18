@@ -1,4 +1,5 @@
 require('dotenv').config();
+import { createHash } from 'crypto';
 import { Client, GuildChannel, Intents, TextChannel } from 'discord.js';
 import { appendFileSync } from 'fs';
 import { compact, head, orderBy, uniq } from 'lodash';
@@ -56,6 +57,7 @@ client.on('ready', async () => {
       console.log('no suitable channel found');
       continue;
     }
+    const seenMessageHashes = new Set<string>();
     for (const [, channel] of await guild.channels.cache) {
       console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isText(), channel.isThread());
 
@@ -74,6 +76,12 @@ client.on('ready', async () => {
                 continue;
               }
               seenMessages.add(message.id);
+              const messageHash = createHash('sha256').update(`${moment(message.createdAt).format('YYYY-MM-DD')}-${message.author.id}-${message.content.toLowerCase().trim().replace(/\ \ /g, ' ')}`).digest('base64');
+              if (seenMessageHashes.has(messageHash)) {
+                console.log('duplicate hash', message.content, messageHash);
+                continue;
+              }
+              seenMessageHashes.add(messageHash);
               if (moment(message.createdAt).isAfter(minDateFullRange)) {
                 count++;
                 lastOldest = message.id;
