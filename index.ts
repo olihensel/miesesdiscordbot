@@ -14,6 +14,7 @@ client.on('ready', async () => {
   const startOfDay = moment().startOf('day');
   const minDateFullRange = moment(startOfDay).subtract(2, 'weeks');
   const minDataCurrentRange = moment(startOfDay).subtract(1, 'day');
+  console.log({ startOfDay: startOfDay.format(), minDateFullRange: minDateFullRange.format(), minDataCurrentRange: minDataCurrentRange.format() });
 
   const secondsFullRange = minDataCurrentRange.unix() - minDateFullRange.unix();
   const secondsCurrentRange = moment(startOfDay).unix() - minDataCurrentRange.unix();
@@ -76,16 +77,19 @@ client.on('ready', async () => {
                 continue;
               }
               seenMessages.add(message.id);
-              const messageHash = createHash('sha256').update(`${moment(message.createdAt).format('YYYY-MM-DD')}-${message.author.id}-${message.content.toLowerCase().trim().replace(/\ \ /g, ' ')}`).digest('base64');
-              if (seenMessageHashes.has(messageHash)) {
-                console.log('duplicate hash', message.content, messageHash);
-                continue;
-              }
-              seenMessageHashes.add(messageHash);
               if (moment(message.createdAt).isAfter(minDateFullRange)) {
                 count++;
                 lastOldest = message.id;
                 lastOldestDate = message.createdAt;
+                let isDuplicateMessage = false;
+                const messageHash = createHash('sha256').update(`${moment(message.createdAt).format('YYYY-MM-DD')}-${message.author.id}-${message.content.toLowerCase().trim().replace(/\ \ /g, ' ')}`).digest('base64');
+                if (seenMessageHashes.has(messageHash)) {
+                  console.log('duplicate hash, ignoring words', message.content, messageHash);
+                  isDuplicateMessage = true;
+                }
+                if (!isDuplicateMessage) {
+                  seenMessageHashes.add(messageHash);
+                }
                 const reactions = Array.from(message.reactions.cache.entries()).map(([reaction, reactionInfo]) => ({
                   key: reactionInfo.emoji?.id ? `<:${reactionInfo.emoji.name}:${reactionInfo.emoji.id}>` : reaction,
 
@@ -96,9 +100,9 @@ client.on('ready', async () => {
                 // add to map depending on date range
                 if (moment(message.createdAt).isBefore(startOfDay)) {
                   if (moment(message.createdAt).isAfter(minDataCurrentRange)) {
-                    analyze(sanitizedMessageContent, reactions, wordMapCurrentRange, emoteMapCurrentRange, reactionMapCurrentRange);
+                    analyze(sanitizedMessageContent, reactions, wordMapCurrentRange, emoteMapCurrentRange, reactionMapCurrentRange, isDuplicateMessage);
                   } else {
-                    analyze(sanitizedMessageContent, reactions, wordMapFullRange, emoteMapFullRange, reactionMapFullRange);
+                    analyze(sanitizedMessageContent, reactions, wordMapFullRange, emoteMapFullRange, reactionMapFullRange, isDuplicateMessage);
                   }
                 }
               }
@@ -125,24 +129,21 @@ client.on('ready', async () => {
 
     const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}
 
-- Wort des Tages: ${
-      (topWordNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordNewcomer?.text} (${topWordNewcomer?.inCurrentRange}x)` : '*keines*'
-    }
+- Wort des Tages: ${(topWordNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordNewcomer?.text} (${topWordNewcomer?.inCurrentRange}x)` : '*keines*'
+      }
 - Emote des Tages: ${(topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'}
-- Emote-Newcomer des Tages: ${
-      (topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topEmoteNewcomer?.text} (${topEmoteNewcomer?.inCurrentRange}x)` : '*keines*'
-    }
+- Emote-Newcomer des Tages: ${(topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topEmoteNewcomer?.text} (${topEmoteNewcomer?.inCurrentRange}x)` : '*keines*'
+      }
 - Reaction des Tages: ${(topReaction?.inCurrentRange ?? 0) > 1 ? `${topReaction?.text} (${topReaction?.inCurrentRange}x)` : '*keines*'}
-- Reaction-Newcomer des Tages: ${
-      (topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
+- Reaction-Newcomer des Tages: ${(topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
         ? `${topReactionNewcomer?.text} (${topReactionNewcomer?.inCurrentRange}x)`
         : '*keines*'
-    }
+      }
 
 <:peepoQuatsch:875141585224994837>`;
     console.log(message);
 
-    await channelToSendTo.send(message);
+    // await channelToSendTo.send(message);
     appendFileSync(
       logfile,
       JSON.stringify({
@@ -190,6 +191,7 @@ function analyze(
   wordMap: Map<string, number>,
   emoteMap: Map<string, number>,
   reactionMap: Map<string, number>,
+  isDuplicateMessage: boolean,
 ) {
   const emoteRegex = /(<a?:[a-zA-Z0-9_~\-+]+:\d+>)/g;
   let match;
@@ -207,8 +209,10 @@ function analyze(
     .split(/[^0-9a-zA-ZäöüÄÖÜß]/)
     .filter((s) => s.length > 1);
 
-  for (const word of uniq(words.map((w) => w.toLowerCase()))) {
-    wordMap.set(word, (wordMap.get(word) ?? 0) + 1);
+  if (!isDuplicateMessage) {
+    for (const word of uniq(words.map((w) => w.toLowerCase()))) {
+      wordMap.set(word, (wordMap.get(word) ?? 0) + 1);
+    }
   }
 
   for (const emote of uniq(emotes)) {
