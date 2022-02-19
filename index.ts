@@ -143,7 +143,7 @@ client.on('ready', async () => {
 <:peepoQuatsch:875141585224994837>`;
     console.log(message);
 
-    // await channelToSendTo.send(message);
+    await channelToSendTo.send(message);
     appendFileSync(
       logfile,
       JSON.stringify({
