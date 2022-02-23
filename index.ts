@@ -4,11 +4,11 @@ import { Client, GuildChannel, Intents, TextChannel } from 'discord.js';
 import { appendFileSync } from 'fs';
 import { compact, head, orderBy, uniq } from 'lodash';
 import moment from 'moment';
-
+import { newStemmer } from 'snowball-stemmers';
 const logfile = './history.jsonlist';
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
-
+const stemmer = newStemmer('german')
 client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
   const startOfDay = moment().startOf('day');
@@ -24,10 +24,12 @@ client.on('ready', async () => {
     console.log(`${guild.name} | ${guild.id}`);
 
     const wordMapFullRange = new Map<string, number>();
+    const wordStemMapFullRange = new Map<string, number>();
     const emoteMapFullRange = new Map<string, number>();
     const reactionMapFullRange = new Map<string, number>();
 
     const wordMapCurrentRange = new Map<string, number>();
+    const wordStemMapCurrentRange = new Map<string, number>();
     const emoteMapCurrentRange = new Map<string, number>();
     const reactionMapCurrentRange = new Map<string, number>();
     const seenMessages = new Set<string>();
@@ -100,9 +102,9 @@ client.on('ready', async () => {
                 // add to map depending on date range
                 if (moment(message.createdAt).isBefore(startOfDay)) {
                   if (moment(message.createdAt).isAfter(minDataCurrentRange)) {
-                    analyze(sanitizedMessageContent, reactions, wordMapCurrentRange, emoteMapCurrentRange, reactionMapCurrentRange, isDuplicateMessage);
+                    analyze(sanitizedMessageContent, reactions, wordMapCurrentRange, wordStemMapCurrentRange, emoteMapCurrentRange, reactionMapCurrentRange, isDuplicateMessage);
                   } else {
-                    analyze(sanitizedMessageContent, reactions, wordMapFullRange, emoteMapFullRange, reactionMapFullRange, isDuplicateMessage);
+                    analyze(sanitizedMessageContent, reactions, wordMapFullRange, wordStemMapFullRange, emoteMapFullRange, reactionMapFullRange, isDuplicateMessage);
                   }
                 }
               }
@@ -117,10 +119,12 @@ client.on('ready', async () => {
     }
     const emoteFactors = calculateFactorsForUsageMaps(emoteMapCurrentRange, emoteMapFullRange, currentRangesInFullRange);
     const wordFactors = calculateFactorsForUsageMaps(wordMapCurrentRange, wordMapFullRange, currentRangesInFullRange);
+    const wordStemFactors = calculateFactorsForUsageMaps(wordStemMapCurrentRange, wordStemMapFullRange, currentRangesInFullRange);
     const reactionsFactors = calculateFactorsForUsageMaps(reactionMapCurrentRange, reactionMapFullRange, currentRangesInFullRange);
 
     const topEmoteNewcomer = head(orderBy(emoteFactors, 'increaseFactorAverage', 'desc'));
     const topWordNewcomer = head(orderBy(wordFactors, 'increaseFactorAverage', 'desc'));
+    const topWordStemNewcomer = head(orderBy(wordStemFactors, 'increaseFactorAverage', 'desc'));
     const topReactionNewcomer = head(orderBy(reactionsFactors, 'increaseFactorAverage', 'desc'));
 
     const topEmote = head(orderBy(emoteFactors, 'inCurrentRange', 'desc'));
@@ -130,6 +134,8 @@ client.on('ready', async () => {
     const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}
 
 - Wort des Tages: ${(topWordNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordNewcomer?.text} (${topWordNewcomer?.inCurrentRange}x)` : '*keines*'
+      }
+- Wortstamm des Tages: ${(topWordStemNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordStemNewcomer?.text} (${topWordStemNewcomer?.inCurrentRange}x)` : '*keines*'
       }
 - Emote des Tages: ${(topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'}
 - Emote-Newcomer des Tages: ${(topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topEmoteNewcomer?.text} (${topEmoteNewcomer?.inCurrentRange}x)` : '*keines*'
@@ -152,9 +158,11 @@ client.on('ready', async () => {
         guildName: guild.name,
         topEmoteNewcomers: orderBy(emoteFactors, 'increaseFactorAverage', 'desc').slice(0, 5),
         topWordNewcomer: orderBy(wordFactors, 'increaseFactorAverage', 'desc').slice(0, 5),
+        topWordStemNewcomer: orderBy(wordStemFactors, 'increaseFactorAverage', 'desc').slice(0, 5),
         topReactionNewcomer: orderBy(reactionsFactors, 'increaseFactorAverage', 'desc').slice(0, 5),
         topEmote: orderBy(emoteFactors, 'inCurrentRange', 'desc').slice(0, 5),
         topWord: orderBy(wordFactors, 'inCurrentRange', 'desc').slice(0, 5),
+        topWordStem: orderBy(wordStemFactors, 'inCurrentRange', 'desc').slice(0, 5),
         topReaction: orderBy(reactionsFactors, 'inCurrentRange', 'desc').slice(0, 5),
       }) + '\n',
     );
@@ -189,6 +197,7 @@ function analyze(
     count: number;
   }[],
   wordMap: Map<string, number>,
+  wortStemMap: Map<string, number>,
   emoteMap: Map<string, number>,
   reactionMap: Map<string, number>,
   isDuplicateMessage: boolean,
@@ -212,6 +221,11 @@ function analyze(
   if (!isDuplicateMessage) {
     for (const word of uniq(words.map((w) => w.toLowerCase()))) {
       wordMap.set(word, (wordMap.get(word) ?? 0) + 1);
+
+      const wordStem = stemmer.stem(word);
+      if (wordStem) {
+        wortStemMap.set(wordStem, (wortStemMap.get(wordStem) ?? 0) + 1);
+      }
     }
   }
 
