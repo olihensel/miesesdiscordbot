@@ -283,6 +283,7 @@ export async function generateStats(userId: string) {
         font-family: sans-serif, "Noto Color Emoji";
         background-color: #333;
         color: #ddd;
+        --total-height: 100px;
       }
       .container {
         display: grid;
@@ -326,6 +327,7 @@ export async function generateStats(userId: string) {
         padding: 5px;
         margin-left: 10px;
         height: 200px;
+        width: 200px;
       }
       canvas {
         margin-bottom: 10px;
@@ -373,10 +375,24 @@ export async function generateStats(userId: string) {
         opacity: 5%;
         filter: grayscale(90%)
       }
+      .emote-watermark {
+        position: absolute;
+        width: 10vw;
+        opacity: 3%;
+        filter: grayscale(90%)
+      }
     </style>
   </head>
   <body>
     <img class="background-suunemote" src="https://cdn.discordapp.com/emojis/${random.arrayElement(suunEmotes)}.png" />
+    ${times(10)
+      .map(
+        () =>
+          `<img class="emote-watermark" style="top: calc( ${15 + Math.random() * 75} / 100 * var(--total-height) ); left: ${
+            5 + Math.random() * 85
+          }%;" src="https://cdn.discordapp.com/emojis/${random.arrayElement(suunEmotes)}.png" />`,
+      )
+      .join('')}
     <div class="container">
       <div class="headerimg"></div>
       <div class="header">
@@ -636,12 +652,19 @@ export async function generateStats(userId: string) {
   content = replaceEmotesInHtml(content);
   content = await replaceMentionsInHtml(content);
   content = await replaceChannelsInHtml(content);
-  // writeFileSync('recap.html', content);
+  writeFileSync(`data/recap/recap_${(member.nickname ?? member.user.tag)?.replace(/[\W_]+/g, '')}_${userId}.html`, content);
 
   await page.setContent(content);
 
   await page.waitForTimeout(1000);
-  const buffer = await page.screenshot({ type: 'png', fullPage: true });
+  await page.evaluate(() => {
+    document.querySelector('body')?.style.setProperty('--total-height', `${document.querySelector('.container')?.clientHeight}px`);
+  });
+  await page.waitForTimeout(200);
+  const buffer = await page.screenshot({
+    type: 'png',
+    fullPage: true,
+  });
   writeFileSync(`data/recap/recap_${(member.nickname ?? member.user.tag)?.replace(/[\W_]+/g, '')}_${userId}.png`, buffer);
   console.log('done');
   await browser.close();
