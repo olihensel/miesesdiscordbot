@@ -6,13 +6,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node index.ts",
-    "start-indexer": "ts-node src/index.ts",
+    "start-indexer": "ts-node src/run-indexing.ts",
+    "recap": "ts-node src/recap.ts",
     "typeorm": "node --require ts-node/register ./node_modules/typeorm/cli.js"
   },
   "author": "olihensel",
   "license": "UNLICENSED",
   "dependencies": {
-    "@discordjs/rest": "0.1.0-canary.0",
     "@types/axios": "^0.14.0",
     "@types/dotenv": "^8.2.0",
     "@types/faker": "^5.5.8",
@@ -26,8 +26,8 @@
     "class-transformer": "^0.5.1",
     "concurrently": "^6.2.1",
     "dictionary-de": "^2.0.4",
-    "discord-api-types": "^0.23.1",
-    "discord.js": "^13.4.0",
+    "discord-api-types": "^0.37.20",
+    "discord.js": "^14.7.1",
     "dotenv": "^10.0.0",
     "erlpack": "github:discord/erlpack",
     "faker": "^5.5.3",

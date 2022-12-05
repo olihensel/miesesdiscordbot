@@ -12,4 +12,7 @@ export class DiscordChannel {
   @Column({ nullable: false })
   @Index({ unique: false })
   displayNamePath!: string;
+
+  @Column({ nullable: true, default: false })
+  isThread!: boolean;
 }

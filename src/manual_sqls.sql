@@ -119,3 +119,20 @@ GROUP BY u.username
 ORDER BY count desc
 LIMIT 100) reply_sender on reply_receiver.username = reply_sender .username
 order by sum desc
+
+-- most used emote
+SELECT count(LOWER(emote)) as count, LOWER(emote) as emote
+FROM "discord_message_flat_emotes"
+WHERE timestamp between '2022-01-01' and '2023-01-01'
+GROUP BY LOWER(emote)
+ORDER BY count(LOWER(emote)) desc
+LIMIT 100
+
+-- most used reaction
+SELECT count(r.emote) as count, r.emote
+FROM discord_reaction r
+LEFT JOIN discord_message m ON m.id = r.message_id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
+GROUP BY r.emote
+ORDER BY count desc
+LIMIT 10

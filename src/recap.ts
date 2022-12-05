@@ -1,5 +1,6 @@
 require('dotenv').config();
-import { Client, Intents, Message, NewsChannel, TextChannel, ThreadChannel } from 'discord.js';
+import { Client, GatewayIntentBits, Message, MessageType, NewsChannel, TextChannel, ThreadChannel } from 'discord.js';
+import { random } from 'faker';
 import { writeFileSync } from 'fs';
 import { compact, times } from 'lodash';
 import moment from 'moment';
@@ -11,11 +12,12 @@ import * as ormConfig from '../ormconfig.json';
 import { DiscordMessage } from './entity/discord-message';
 const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MEMBERS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-    Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.GuildMessageTyping,
   ],
 });
 const connectionPromise = createConnection({ ...ormConfig, type: 'postgres', namingStrategy: new SnakeNamingStrategy() });
@@ -23,27 +25,42 @@ const connectionPromise = createConnection({ ...ormConfig, type: 'postgres', nam
 const suuncordServerId = '717034183465107456';
 const oli = '267745416186036225';
 
-const rangeStartDate = moment('2021-01-01').startOf('day').toDate();
-const rangeEndDate = moment('2021-12-31').endOf('day').toDate();
+const rangeStartDate = moment('2022-01-01').startOf('day').toDate();
+const rangeEndDate = moment('2022-12-31').endOf('day').toDate();
 
+const suunEmotesMsg = `<:suunAngry:947921898229084251><:suunCake:947921897390219294><:suunCmon:947921888020160532><:suunComfy:947921899000844308><:suunDerp:947921896933031986><:suunDrum:947921899810324520><:suunG:947921895234359307><:suunGuitar:947921899000844309><:suunHehe:947921881481248858><:suunHi:947921897390219295><:suunHype:947921887135166515><:suunHide:947921891702755348><:suunJammies:958833101621039105><:suunLost:947921898229084250><:suunLove:947921889869856788><:suunLurk:947921895234359306><:suunMS:748515853623885845><:suunMusic:1001217805154275409><:suunCozy:947921883632914442><:suunNom:947921892583538728><:suunHe:818255003524399136><:suunPop:947921875051352064><:suunSad:947921886266949692><:suunSit:964903087095554099><:suunSleep:947921896102584320><:suunWTF:1001217804126654474><:suunWiggle:955194092567031878><:suunWoah:947921885302235186><:suunWow:959572956323905567><:ms_Cookie:818275844304535552>`;
+const suunEmotes = suunEmotesMsg.split(/[<:>]/g).filter((t) => /^\d+$/g.test(t));
+console.log(suunEmotes);
 client.on('error', console.error);
 let isReady = false;
 client.on('ready', async () => {
   isReady = true;
 
-  /*
-  const testUsers = [oli];
+  // const channel = client.guilds.cache.get('703705066351362068')?.channels.cache.get('703705066351362071');
+  // if (channel?.isTextBased()) {
+  //   const msg = await channel.messages.fetch('1049427095777968228');
+  //   console.log(msg);
+  // }
+
+  const testUsers = [oli, '731838778976501781', '399686518253420564', '890539960808140800'];
 
   for (const user of testUsers) {
     console.log('generating user', user);
-    await generateStats(user);
+    const stats = await generateStats(user);
+    console.log(stats);
   }
-  */
+
+  return;
 
   console.log(`Logged in as ${client?.user?.tag}!`);
   // const channel = client.guilds.cache.get('703705066351362068')?.channels.cache.get('890737558894567554');
   client.on('messageCreate', async (msg) => {
-    if (msg.content === '!recap' && msg.channel.isText() && msg.guildId === suuncordServerId && msg.channelId === '926423405668995073') {
+    if (
+      msg.content === '!recap' &&
+      msg.channel.isTextBased() &&
+      msg.guildId === suuncordServerId &&
+      msg.channelId === '926423405668995073'
+    ) {
       try {
         const stats = await generateStats(msg.author.id);
         const member = msg.author?.username.replace(/[\W_]+/g, '');
@@ -51,7 +68,7 @@ client.on('ready', async () => {
         // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
         await msg.reply({
           content: stats.mostLikedMessageUrl ? `Link zu deiner beliebtesten Nachricht ${stats.mostLikedMessageUrl}` : undefined,
-          files: [{ attachment: stats.buffer, name: `SUUNCORD-Recap-2021_${member}.png` }],
+          files: [{ attachment: stats.buffer, name: `SUUNCORD-Recap-2022_${member}.png` }],
         });
       } catch (e: unknown) {
         console.error(e);
@@ -60,7 +77,7 @@ client.on('ready', async () => {
       /*
       await msg.author
         ?.send(
-          `Du hast Dir folgende Nachrichten mit peepoNotes markiert:\n${(await getSavedMessages(msg.author.id))
+          `Du hast Dir folgende Nachrichten mit peepoNotes oder suunG markiert:\n${(await getSavedMessages(msg.author.id))
             .map(
               (m) =>
                 ` - ${m.plain_text.replace(/\n/g, '')} (https://discordapp.com/channels/${suuncordServerId}/${m.channel_id}/${
@@ -111,7 +128,7 @@ export async function getEmoteTag(emoteName: string) {
   }
 
   const channel = client.guilds.cache.get(suuncordServerId)?.channels.cache.get(message?.channel?.id);
-  if (!channel?.isText()) {
+  if (!channel?.isTextBased()) {
     return emoteName;
   }
   const dcMessage = await channel.messages.fetch(messageId);
@@ -129,6 +146,15 @@ export async function generateStats(userId: string) {
   const user = await client.users.fetch(userId);
   const guild = await client.guilds.fetch(suuncordServerId);
   const member = await guild.members.fetch(userId);
+  const firstMessageOfUser: { timestamp: string }[] = await connection.query(
+    `
+  SELECT timestamp from discord_message 
+  WHERE from_id = $1
+  ORDER BY timestamp asc
+  LIMIT 1`,
+    [userId],
+  );
+  const timestampFirstMessage = firstMessageOfUser?.[0].timestamp ? moment(firstMessageOfUser?.[0].timestamp) : undefined;
   const mostReactedMessages = await connection.query(
     //`SELECT * from discord_message_reaction_count where from_id = $3 AND timestamp between $1 and $2 AND plain_text != '' LIMIT 1`,
     `SELECT * 
@@ -142,7 +168,7 @@ export async function generateStats(userId: string) {
   let dcMessage: Message<boolean> | undefined;
   if (mostReactedMessage) {
     const channel = guild.channels.cache.get(mostReactedMessage.channel_id);
-    if (channel && channel.isText()) {
+    if (channel && channel.isTextBased()) {
       dcMessage = await channel.messages.fetch(mostReactedMessage.id);
     }
   }
@@ -220,7 +246,7 @@ export async function generateStats(userId: string) {
     AND timestamp between $1 and $2 
     GROUP BY emote
     ORDER BY count(emote) desc
-    LIMIT 5`,
+    LIMIT 10`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostUsedReactions: { count: string; emote: string }[] = await connection.query(
@@ -232,7 +258,7 @@ export async function generateStats(userId: string) {
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT 5`,
+    LIMIT 10`,
     [rangeStartDate, rangeEndDate, userId],
   );
 
@@ -249,10 +275,12 @@ export async function generateStats(userId: string) {
   let content = `
 <html>
   <head>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
       body {
-        font-family: sans-serif;
+        font-family: sans-serif, "Noto Color Emoji";
         background-color: #333;
         color: #ddd;
       }
@@ -326,17 +354,43 @@ export async function generateStats(userId: string) {
         justify-content: flex-start;
         align-items: flex-start;
       }
+      .top-message-reaction {
+        background-color: #444;
+        border-radius: 3px;
+        padding: 4px 3px 2px 3px;
+        margin: 3px;
+        white-space: nowrap;
+      }
+      .top-message-reaction img {
+        margin-top: 3px;
+        margin-bottom: -3px;
+      }
+      .background-suunemote {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 25vw;
+        opacity: 5%;
+        filter: grayscale(90%)
+      }
     </style>
   </head>
   <body>
+    <img class="background-suunemote" src="https://cdn.discordapp.com/emojis/${random.arrayElement(suunEmotes)}.png" />
     <div class="container">
       <div class="headerimg"></div>
       <div class="header">
-        <h2>suuN-Discord Recap <strong>2021</strong></h2>
+        <h2>suuN-Discord Recap <strong>2022</strong></h2>
         <h3>
           von ${member.nickname ?? member.user.username} (${member.user.tag})
         </h3>
-        ${member.joinedAt ? `<span>seit <strong>${moment(member.joinedAt).format('DD.MM.YYYY')}</strong> dabei</span>` : ''}
+        ${
+          member.joinedAt && moment(member.joinedAt).isBefore(timestampFirstMessage)
+            ? `<span>seit <strong>${moment(member.joinedAt).format('DD.MM.YYYY')}</strong> dabei</span>`
+            : timestampFirstMessage
+            ? `<span>erste Nachricht am <strong>${moment(timestampFirstMessage).format('DD.MM.YYYY')}</strong></span>`
+            : ''
+        }
       </div>
       <div class="left">
         <table>
@@ -373,7 +427,7 @@ export async function generateStats(userId: string) {
               ${(
                 await Promise.all(
                   mostUsedEmotes.map(
-                    async (emote) => `<li>${await getEmoteTag(emote.emote)}<span style="font-size: 0.5em;">: ${emote.count}x</span></li>`,
+                    async (emote) => `<li>${await getEmoteTag(emote.emote)}<span style="font-size: 0.5em;"> ${emote.count}x</span></li>`,
                   ),
                 )
               ).join('\n')}
@@ -385,7 +439,7 @@ export async function generateStats(userId: string) {
             ${(
               await Promise.all(
                 mostUsedReactions.map(
-                  async (emote) => `<li>${await getEmoteTag(emote.emote)}<span style="font-size: 0.5em;">: ${emote.count}x</span></li>`,
+                  async (emote) => `<li>${await getEmoteTag(emote.emote)}<span style="font-size: 0.5em;"> ${emote.count}x</span></li>`,
                 ),
               )
             ).join('\n')}
@@ -401,16 +455,18 @@ export async function generateStats(userId: string) {
           <br />
           <br />
           <span style="overflow-wrap: break-word; word-wrap: break-word; ">"${
-            dcMessage?.type === 'GUILD_MEMBER_JOIN' ? 'ist dem Server beigetreten.' : mostReactedMessage?.plain_text || '-- Kein Inhalt --'
-          }" am ${moment(mostReactedMessage?.timestamp).format('DD.MM.YYYY')} um ${moment(mostReactedMessage?.timestamp).format('HH:mm')}${
+            dcMessage?.type === MessageType.UserJoin ? 'ist dem Server beigetreten.' : mostReactedMessage?.plain_text || '-- Kein Inhalt --'
+          }"<i> am ${moment(mostReactedMessage?.timestamp).format('DD.MM.YYYY')} um ${moment(mostReactedMessage?.timestamp).format(
+                'HH:mm',
+              )}${
                 dcMessage?.channel &&
-                dcMessage.channel.isText() &&
+                dcMessage.channel.isTextBased() &&
                 (dcMessage.channel instanceof NewsChannel ||
                   dcMessage.channel instanceof ThreadChannel ||
                   dcMessage.channel instanceof TextChannel)
                   ? ` in #${dcMessage.channel.name}`
                   : ''
-              }</span>
+              }</i></span>
           <br />
           ${
             dcMessage?.attachments
@@ -424,9 +480,9 @@ export async function generateStats(userId: string) {
             dcMessage?.reactions.cache
               .map(
                 (r) =>
-                  `<span style="background-color: #444; border-radius: 3px; padding: 4px 3px 2px 3px; margin: 3px; white-space: nowrap;">${
-                    r.count
-                  }x&nbsp;${r.emoji.id ? `<:${r.emoji.name}:${r.emoji.id}>` : r.emoji.name}</span>`,
+                  `<span class="top-message-reaction" style="">${r.count}x&nbsp;${
+                    r.emoji.id ? `<:${r.emoji.name}:${r.emoji.id}>` : r.emoji.name
+                  }</span>`,
               )
               .join('') ?? ''
           }
@@ -475,11 +531,13 @@ export async function generateStats(userId: string) {
           {
             label: "Nachrichten nach Monat",
             data: ${JSON.stringify(sortedMonths)},
-            borderWidth: 1,
+            borderWidth: 2,
+            borderColor: "#D589FF",
           },
         ],
       },
       options: {
+        pointRadius: 0,
         scales: {
           y: {
             beginAtZero: true,
@@ -501,11 +559,13 @@ export async function generateStats(userId: string) {
           {
             label: "Nachrichten nach Wochentag",
             data: ${JSON.stringify(sortedDayOfWeeks)},
-            borderWidth: 1,
+            borderWidth: 2,
+            borderColor: "#D589FF",
           },
         ],
       },
       options: {
+        pointRadius: 0,
         scales: {
           y: {
             beginAtZero: true,
@@ -552,11 +612,13 @@ export async function generateStats(userId: string) {
           {
             label: "Nachrichten nach Uhrzeit",
             data: ${JSON.stringify(sortedHours)},
-            borderWidth: 1,
+            borderWidth: 2,
+            borderColor: "#D589FF",
           },
         ],
       },
       options: {
+        pointRadius: 0,
         scales: {
           y: {
             beginAtZero: true,
@@ -580,7 +642,7 @@ export async function generateStats(userId: string) {
 
   await page.waitForTimeout(1000);
   const buffer = await page.screenshot({ type: 'png', fullPage: true });
-  writeFileSync(`data/recap_${(member.nickname ?? member.user.tag)?.replace(/[\W_]+/g, '')}_${userId}.png`, buffer);
+  writeFileSync(`data/recap/recap_${(member.nickname ?? member.user.tag)?.replace(/[\W_]+/g, '')}_${userId}.png`, buffer);
   console.log('done');
   await browser.close();
   return { buffer, mostLikedMessageUrl: dcMessage ? dcMessage.url : undefined };
@@ -655,7 +717,7 @@ async function getSavedMessages(userId: string) {
   LEFT JOIN discord_message m on m.id = r.message_id
   WHERE u.discord_user_id = $3
   AND m.timestamp between $1 and $2 
-  AND r.emote = 'peepoNotes'
+  AND (r.emote = 'peepoNotes' OR r.emote = 'suunG')
   ORDER BY m.timestamp DESC`,
     [rangeStartDate, rangeEndDate, userId],
   );
