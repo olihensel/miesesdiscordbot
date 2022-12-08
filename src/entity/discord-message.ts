@@ -1,8 +1,8 @@
 import { Column, Entity, Index, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
 import { DiscordChannel } from './discord-channel';
+import { DiscordAttachment, DiscordEmbed } from './discord-json-types';
 import { DiscordReaction } from './discord-reaction';
 import { DiscordUser } from './discord-user';
-
 @Entity()
 export class DiscordMessage {
   @PrimaryColumn({ nullable: false })
@@ -41,4 +41,14 @@ export class DiscordMessage {
   @Column({ nullable: false })
   @Index({ unique: false })
   timestamp!: Date;
+
+  @Column({ nullable: true })
+  @Index({ unique: false })
+  referencedMessage?: string;
+
+  @Column({ nullable: true, type: 'jsonb' })
+  embeds?: DiscordEmbed[];
+
+  @Column({ nullable: true, type: 'jsonb' })
+  attachments?: DiscordAttachment[];
 }

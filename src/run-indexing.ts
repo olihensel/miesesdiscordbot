@@ -8,10 +8,13 @@ import { createConnection } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import * as ormConfig from '../ormconfig.json';
 import { DiscordChannel } from './entity/discord-channel';
+import { DiscordAttachment, DiscordEmbed } from './entity/discord-json-types';
 import { DiscordMessage } from './entity/discord-message';
 import { DiscordReaction } from './entity/discord-reaction';
 import { DiscordUser } from './entity/discord-user';
-
+// check if arguments contain "--from-first-per-channel"
+const fromFirstPerChannel = process.argv.includes('--from-first-per-channel');
+console.log({ fromFirstPerChannel: fromFirstPerChannel });
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -138,7 +141,7 @@ client.on('ready', async () => {
           id: channel.id,
           displayName: channel.name,
           displayNamePath: channelPath,
-          isThread: channel.isThread(),
+          isThread: channel.isThread() ?? false,
         }),
       );
 
@@ -146,6 +149,23 @@ client.on('ready', async () => {
       let lastLength = limit;
       let lastOldest: string | undefined;
       let lastOldestDate: Date | undefined;
+      if (fromFirstPerChannel) {
+        // find the 199st oldest message for thread - TEMP
+        const lastMessage = (
+          await connection.manager.find(DiscordMessage, {
+            where: { channel: dbChannel },
+            order: { timestamp: 'ASC' },
+            skip: 199,
+            take: 1,
+          })
+        )?.[0];
+        // const lastMessage = await connection.manager.findOne(DiscordMessage, { channel: dbChannel }, { order: { timestamp: 'ASC' } });
+        console.log('processing from oldest known message', lastMessage?.id, lastMessage?.timestamp?.toISOString?.(), '...');
+        if (lastMessage) {
+          lastOldest = lastMessage.id;
+          lastOldestDate = lastMessage.timestamp;
+        }
+      }
       while (lastLength >= limit) {
         try {
           const messages = await channel.messages.fetch({ limit, ...(lastOldest ? { before: lastOldest } : {}) });
@@ -181,8 +201,14 @@ client.on('ready', async () => {
               if (mentions.length > 0) {
                 mentions = await connection.manager.save(mentions);
               }
+
+              const relevantEmbeds = message.embeds?.filter(
+                (embed) =>
+                  (embed.data.image || embed.data.video || embed.data.thumbnail) &&
+                  !(embed.data.author || embed.data.title || embed.data.description || embed.data.fields),
+              );
               const sanitizedMessageContent = message.content.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
-              message.flags;
+
               const emoteRegex = /<a?:([a-zA-Z0-9_~\-+]+):\d+>/g;
               let match;
               let emotes: string[] = [];
@@ -213,6 +239,52 @@ client.on('ready', async () => {
                   wordCount: unorderedWords.length,
                   timestamp: message.createdAt,
                   words,
+                  referencedMessage: message.reference?.messageId ?? undefined,
+                  attachments:
+                    message.attachments?.size > 0
+                      ? message.attachments.map<DiscordAttachment>((a) => ({
+                          id: a.id,
+                          url: a.url,
+                          proxy_url: a.proxyURL,
+                          size: a.size,
+                          filename: a.name ?? undefined,
+                          content_type: a.contentType ?? undefined,
+                          height: a.height ?? undefined,
+                          width: a.width ?? undefined,
+                          description: a.description ?? undefined,
+                        }))
+                      : undefined,
+
+                  embeds:
+                    relevantEmbeds?.length > 0
+                      ? relevantEmbeds.map<DiscordEmbed>((e) => ({
+                          type: e.data.type ?? 'rich',
+                          image: e.data.image?.url
+                            ? {
+                                url: e.data.image.url,
+                                width: e.data.image.width,
+                                height: e.data.image.height,
+                                proxy_url: e.data.image.proxy_url,
+                              }
+                            : undefined,
+                          video: e.data.video?.url
+                            ? {
+                                url: e.data.video.url,
+                                width: e.data.video.width,
+                                height: e.data.video.height,
+                                proxy_url: e.data.video.proxy_url,
+                              }
+                            : undefined,
+                          thumbnail: e.data.thumbnail?.url
+                            ? {
+                                url: e.data.thumbnail.url,
+                                width: e.data.thumbnail.width,
+                                height: e.data.thumbnail.height,
+                                proxy_url: e.data.thumbnail.proxy_url,
+                              }
+                            : undefined,
+                        }))
+                      : undefined,
                 }),
               );
               const existingReactions = await connection.manager.find(DiscordReaction, { message: { id: message.id } });
@@ -269,12 +341,16 @@ async function getReactionWithUsers(
   let hasMore = true;
   let lastUser: string | undefined;
   while (hasMore) {
-    const newUsers = await (await reactionInfo.users.fetch({ limit: 100, after: lastUser })).map((u) => u);
-    // prevent rate limiting.. i think discord.js is kinda broken here.
-    await delayAsync(20);
-    hasMore = newUsers.length === 100;
-    users.push(...newUsers);
-    lastUser = newUsers.pop()?.id;
+    try {
+      const newUsers = await (await reactionInfo.users.fetch({ limit: 100, after: lastUser })).map((u) => u);
+      // prevent rate limiting.. i think discord.js is kinda broken here.
+      await delayAsync(20);
+      hasMore = newUsers.length === 100;
+      users.push(...newUsers);
+      lastUser = newUsers.pop()?.id;
+    } catch (e) {
+      console.error('maybe failed again due to https://github.com/discord/discord-api-docs/issues/5720', e);
+    }
   }
   return createInstance(DiscordReaction, {
     count: reactionInfo.count,
