@@ -136,3 +136,23 @@ WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY r.emote
 ORDER BY count desc
 LIMIT 10
+
+-- all gifs
+select m.id, m.plain_text, m.embeds->0->'type' as type, m.embeds->0 as embed from discord_message m
+WHERE m.embeds is not null
+AND (
+  (m.embeds->0->>'type' = 'gifv') 
+  OR (m.embeds->0->>'type' = 'image' AND m.embeds->0->'thumbnail'->>'url' LIKE '%.gif')
+)
+
+-- top x gifs
+select count(split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1)) as count, split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1) as url from discord_message m
+WHERE m.embeds is not null
+AND (
+  (m.embeds->0->>'type' = 'gifv') 
+  OR (m.embeds->0->>'type' = 'image' AND m.embeds->0->'thumbnail'->>'url' LIKE '%.gif')
+)
+AND m.timestamp between '2022-01-01' and '2023-01-01'
+GROUP BY url
+ORDER BY count desc
+LIMIT 100

@@ -35,7 +35,7 @@ const oliServerId = '703705066351362068';
 client.on('error', console.error);
 client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
-  const minDateFullRange = moment('1900-01-01');
+  const minDateFullRange = moment('2022-12-05');
   const connection = await createConnection({ ...ormConfig, type: 'postgres', namingStrategy: new SnakeNamingStrategy() });
   for (const [, guild] of client.guilds.cache) {
     console.log(
