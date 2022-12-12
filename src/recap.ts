@@ -154,7 +154,13 @@ export async function generateStats(userId: string) {
   const connection = await connectionPromise;
   const user = await client.users.fetch(userId);
   const guild = await client.guilds.fetch(suuncordServerId);
-  const member = await guild.members.fetch(userId);
+
+  let member;
+  try {
+    member = await guild.members.fetch(userId);
+  } catch (e) {
+    console.error('error fetching user', e);
+  }
   const firstMessageOfUser: { timestamp: string }[] = await connection.query(
     `
   SELECT timestamp from discord_message 
@@ -181,7 +187,6 @@ export async function generateStats(userId: string) {
       dcMessage = await channel.messages.fetch(mostReactedMessage.id);
     }
   }
-  dcMessage?.reference;
 
   const numberFormatter = new Intl.NumberFormat('de-DE');
   const messageCountResp: { count: string; word_count: string; message_length: string }[] = await connection.query(
@@ -372,7 +377,7 @@ export async function generateStats(userId: string) {
       }
       .headerimg {
         grid-area: headerimg;
-        background-image: url(${member.displayAvatarURL()});
+        background-image: url(${(member || user).displayAvatarURL()});
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -466,10 +471,10 @@ export async function generateStats(userId: string) {
       <div class="header">
         <h2>suuN-Discord Recap <strong>2022</strong></h2>
         <h3>
-          von ${member.nickname ?? member.user.username} (${member.user.tag})
+          von ${member?.nickname ?? member?.user?.username ?? user.username} (${member?.user?.tag ?? user.tag})
         </h3>
         ${
-          member.joinedAt && moment(member.joinedAt).isBefore(timestampFirstMessage)
+          member?.joinedAt && moment(member.joinedAt).isBefore(timestampFirstMessage)
             ? `<span>seit <strong>${moment(member.joinedAt).format('DD.MM.YYYY')}</strong> dabei</span>`
             : timestampFirstMessage
             ? `<span>erste Nachricht am <strong>${moment(timestampFirstMessage).format('DD.MM.YYYY')}</strong></span>`
@@ -561,7 +566,7 @@ export async function generateStats(userId: string) {
       </div>
       <div class="footer">
         ${
-          mostReactedMessage
+          mostReactedMessage && mostReactedMessage?.reactions
             ? `
         <hr width="100%" />
         <p style="margin-top: 4px; max-width: 100%;">
@@ -755,7 +760,7 @@ export async function generateStats(userId: string) {
 
   await page.waitForTimeout(1000);
   const buffer = await page.screenshot({ type: 'png', fullPage: true });
-  writeFileSync(`data/recap/recap_${(member.nickname ?? member.user.tag)?.replace(/[\W_]+/g, '')}_${userId}.png`, buffer);
+  writeFileSync(`data/recap/recap_${(member?.nickname ?? member?.user.tag ?? user.tag)?.replace(/[\W_]+/g, '')}_${userId}.png`, buffer);
   console.log('done');
   await browser.close();
   return { buffer, mostLikedMessageUrl: dcMessage ? dcMessage.url : undefined };
@@ -818,14 +823,17 @@ async function replaceMentionsInHtml(message: string): Promise<string> {
     mentions = compact(mentions);
   }
   for (const mention of mentions) {
-    message = message.replace(
-      mention.tag,
-      `@${
-        (await client.guilds?.cache?.get(suuncordServerId)?.members?.fetch(mention.id))?.nickname ??
-        (await client.users.fetch(mention.id)).tag ??
-        mention.id
-      }`,
-    );
+    let nick;
+    try {
+      nick = (await client.guilds?.cache?.get(suuncordServerId)?.members?.fetch(mention.id))?.nickname;
+    } catch (e) {}
+    try {
+      if (!nick) {
+      }
+      nick = (await client.users.fetch(mention.id)).tag;
+    } catch (e) {}
+
+    message = message.replace(mention.tag, `@${nick ?? mention.id}`);
   }
   return message;
 }
