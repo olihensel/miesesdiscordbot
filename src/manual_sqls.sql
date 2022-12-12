@@ -72,7 +72,7 @@ group by danke.display_name, danke.username, danke.count
 order by ratio desc
 
 -- most reacting person
-SELECT u.display_name, u.username, count(u.username) as count FROM "discord reaction users" ru
+SELECT u.display_name, u.username, count(u.username) as count FROM "discord_reaction_users" ru
 LEFT JOIN discord_user u on ru.discord_user_id = u.id
 GROUP BY u.display_name, u.username
 ORDER BY count desc

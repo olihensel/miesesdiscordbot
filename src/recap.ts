@@ -42,7 +42,7 @@ client.on('ready', async () => {
   //   console.log(msg);
   // }
 
-  const testUsers = [oli, '731838778976501781', '399686518253420564', '890539960808140800'];
+  const testUsers = [oli, '731838778976501781', '399686518253420564', '890539960808140800', '539087313989402674'];
 
   for (const user of testUsers) {
     console.log('generating user', user);
@@ -50,6 +50,7 @@ client.on('ready', async () => {
     console.log(stats);
   }
 
+  client.destroy();
   return;
 
   console.log(`Logged in as ${client?.user?.tag}!`);
@@ -239,6 +240,21 @@ export async function generateStats(userId: string) {
   }, {});
   const sortedHours = times(24, (i) => i).map((i) => unsortedHours[i] ?? 0);
 
+  const receivedReactionCountPerMonthResp: { count: string; month: string }[] = await connection.query(
+    `SELECT count(r.message_id) as count, EXTRACT(MONTH FROM timestamp) as month
+    FROM discord_reaction r
+    LEFT JOIN discord_message m ON m.id = r.message_id
+    WHERE m.from_id = $3
+    AND m.timestamp between $1 and $2
+    GROUP BY month`,
+    [rangeStartDate, rangeEndDate, userId],
+  );
+  const unsortedReceivedReactionMonths = receivedReactionCountPerMonthResp.reduce((acc: any, next: any) => {
+    acc[Number(next.month)] = next.count;
+    return acc;
+  }, {});
+  const sortedReceivedReactionMonths = times(12, (i) => i + 1).map((i) => unsortedReceivedReactionMonths[i] ?? 0);
+
   const mostUsedEmotes: { count: string; emote: string }[] = await connection.query(
     `SELECT count(emote) as count, emote
     FROM "discord_message_flat_emotes"
@@ -246,7 +262,7 @@ export async function generateStats(userId: string) {
     AND timestamp between $1 and $2 
     GROUP BY emote
     ORDER BY count(emote) desc
-    LIMIT 10`,
+    LIMIT 5`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostUsedReactions: { count: string; emote: string }[] = await connection.query(
@@ -258,10 +274,34 @@ export async function generateStats(userId: string) {
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT 10`,
+    LIMIT 5`,
+    [rangeStartDate, rangeEndDate, userId],
+  );
+  const mostReceivedReaction: { count: string; emote: string }[] = await connection.query(
+    `SELECT sum(r.count) as count, r.emote
+    FROM discord_reaction r
+    LEFT JOIN discord_message m ON m.id = r.message_id
+    WHERE m.from_id = $3
+    AND m.timestamp between $1 and $2
+    GROUP BY r.emote
+    ORDER BY count desc
+    LIMIT 5`,
     [rangeStartDate, rangeEndDate, userId],
   );
 
+  const mostMessagesByChannel: { count: string; channel: string }[] = await connection.query(
+    `SELECT m.count as count, c.display_name as channel
+    FROM (SELECT count(m.channel_id) as count, m.channel_id as channel_id from discord_message m
+          WHERE m.from_id = $3
+          AND m.timestamp between $1 and $2
+          GROUP BY m.channel_id
+          ORDER BY count(m.channel_id) desc) m
+    LEFT JOIN discord_channel c on c.id = m.channel_id
+    ORDER BY count desc
+    LIMIT 5
+    `,
+    [rangeStartDate, rangeEndDate, userId],
+  );
   const browser = await chromium.launch({
     headless: true,
   });
@@ -332,27 +372,24 @@ export async function generateStats(userId: string) {
       }
       .emotecontainer {
         display: grid;
-        grid-template-columns: 50% 50%;
+        grid-template-columns: 40% 60%;
 
         grid-template-rows: auto;
         grid-template-areas: "leftemote rightemote";
         width: 100%;
       }
-      .leftemote {
-        grid-area: leftemote;
+      .emotecontainer div {
         padding: 5px;
         display: inline-flex;
         flex-direction: column;
         justify-content: flex-start;
         align-items: flex-start;
       }
+      .leftemote {
+        grid-area: leftemote;
+      }
       .rightemote {
         grid-area: rightemote;
-        padding: 5px;
-        display: inline-flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: flex-start;
       }
       .top-message-reaction {
         background-color: #444;
@@ -422,7 +459,7 @@ export async function generateStats(userId: string) {
         <hr width="100%" />
         <div class="emotecontainer">
           <div class="leftemote">
-            <span style="margin-bottom: 8px"><strong>Lieblings-Emotes</strong></span>
+            <span style="margin-bottom: 8px"><strong>Top-Emotes</strong></span>
             <ol style="margin: 0px; font-size: 2em;">
               ${(
                 await Promise.all(
@@ -434,12 +471,39 @@ export async function generateStats(userId: string) {
             </ol>
           </div>
           <div class="rightemote">
-            <span style="margin-bottom: 8px"><strong>Lieblings-Reactions</strong></span>
+            <span style="margin-bottom: 8px"><strong>Top-Reactions</strong></span>
             <ol style="margin: 0px; font-size: 2em;">
             ${(
               await Promise.all(
                 mostUsedReactions.map(
                   async (emote) => `<li>${await getEmoteTag(emote.emote)}<span style="font-size: 0.5em;"> ${emote.count}x</span></li>`,
+                ),
+              )
+            ).join('\n')}
+            </ol>
+          </div>
+        </div>
+        <hr width="100%" />
+        <div class="emotecontainer">
+          <div class="leftemote">
+            <span style="margin-bottom: 8px"><strong>Erhaltene Reactions</strong></span>
+            <ol style="margin: 0px; font-size: 2em;">
+            ${(
+              await Promise.all(
+                mostReceivedReaction.map(
+                  async (emote) => `<li>${await getEmoteTag(emote.emote)}<span style="font-size: 0.5em;"> ${emote.count}x</span></li>`,
+                ),
+              )
+            ).join('\n')}
+            </ol>
+          </div>
+          <div class="rightemote">
+            <span style="margin-bottom: 8px"><strong>Top-Channel</strong></span>
+            <ol style="margin: 0px; font-size: 2em;">
+            ${(
+              await Promise.all(
+                mostMessagesByChannel.map(
+                  async (channel) => `<li><span style="font-size: 0.5em;">${channel.channel} ${channel.count}x</span></li>`,
                 ),
               )
             ).join('\n')}
@@ -469,9 +533,11 @@ export async function generateStats(userId: string) {
               }</i></span>
           <br />
           ${
-            dcMessage?.attachments
-              ?.filter((a) => a.contentType?.startsWith('image') ?? false)
-              ?.map((a) => `<img src="${a.url}" style="max-height: 100px; max-width: 100px; margin: 3px;" />`)
+            [
+              ...(dcMessage?.attachments?.filter((a) => a.contentType?.startsWith('image') ?? false)?.map((a) => a.url) ?? []),
+              ...(dcMessage?.embeds?.map((e) => e.image?.url ?? e.thumbnail?.url) ?? []),
+            ]
+              ?.map((url) => `<img src="${url}" style="max-height: 100px; max-width: 100px; margin: 3px;" />`)
               ?.join('') ?? ''
           }
           <br />
@@ -498,6 +564,7 @@ export async function generateStats(userId: string) {
         <canvas id="chart1" width="390" height="175"></canvas>
         <canvas id="chart2" width="390" height="175"></canvas>
         <canvas id="chart3" width="390" height="175"></canvas>
+        <canvas id="chart4" width="390" height="175"></canvas>
       </div>
     </div>
   </body>
@@ -612,6 +679,48 @@ export async function generateStats(userId: string) {
           {
             label: "Nachrichten nach Uhrzeit",
             data: ${JSON.stringify(sortedHours)},
+            borderWidth: 2,
+            borderColor: "#D589FF",
+          },
+        ],
+      },
+      options: {
+        pointRadius: 0,
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
+        },
+        animation: {
+          duration: 0,
+        },
+      },
+    });
+
+    
+    const chart4Ctx = document.getElementById("chart4").getContext("2d");
+    const chart4 = new Chart(chart4Ctx, {
+      type: "line",
+
+      data: {
+        labels: [
+          "Jan",
+          "Feb",
+          "Mär",
+          "Apr",
+          "Mai",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Okt",
+          "Nov",
+          "Dez",
+        ],
+        datasets: [
+          {
+            label: "Erhaltene Reactions nach Monat",
+            data: ${JSON.stringify(sortedReceivedReactionMonths)},
             borderWidth: 2,
             borderColor: "#D589FF",
           },
