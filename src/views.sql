@@ -51,3 +51,22 @@ CREATE VIEW "discord_reaction_with_timestamps" AS SELECT r.emote,
    FROM (discord_reaction r
      LEFT JOIN discord_message m ON (((m.id)::text = (r.message_id)::text)));
 
+-- sql that will return the messages ordered by the amount of unique reacting users
+-- this is a bit of a hack, but it works
+DROP TABLE IF EXISTS "discord_message_reaction_user_count";
+CREATE VIEW "discord_message_reaction_user_count" AS SELECT m.id,
+    m.plain_text,
+    m.words,
+    m.emotes,
+    m.message_length,
+    m.word_count,
+    m."timestamp",
+    m.from_id,
+    m.channel_id,
+    count(DISTINCT ru.discord_user_id) AS reactions
+   FROM discord_message m
+     LEFT JOIN discord_reaction r ON (((r.message_id)::text = (m.id)::text))
+     LEFT JOIN discord_reaction_users ru ON (((ru.discord_reaction_id)::text = (r.id)::text))^
+  WHERE r.emote != ''
+  GROUP BY m.id
+  ORDER BY count(DISTINCT ru.discord_user_id) DESC;

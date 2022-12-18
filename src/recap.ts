@@ -2,7 +2,7 @@ require('dotenv').config();
 import { Client, GatewayIntentBits, Message, MessageType, NewsChannel, TextChannel, ThreadChannel } from 'discord.js';
 import { random } from 'faker';
 import { writeFileSync } from 'fs';
-import { compact, times } from 'lodash';
+import { compact, times, uniq } from 'lodash';
 import moment from 'moment';
 import { chromium } from 'playwright';
 import 'reflect-metadata';
@@ -180,14 +180,39 @@ export async function generateStats(userId: string) {
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostReactedMessage = mostReactedMessages?.[0];
-  let dcMessage: Message<boolean> | undefined;
+  let mostReactedMessageDiscord: Message<boolean> | undefined;
+  let mostReactedMessageDb: DiscordMessage | undefined;
   if (mostReactedMessage) {
     const channel = guild.channels.cache.get(mostReactedMessage.channel_id);
     if (channel && channel.isTextBased()) {
-      dcMessage = await channel.messages.fetch(mostReactedMessage.id);
+      mostReactedMessageDiscord = await channel.messages.fetch(mostReactedMessage.id);
     }
+    mostReactedMessageDb = await connection
+      .getRepository(DiscordMessage)
+      .findOne(mostReactedMessage.id, { relations: ['reactions', 'reactions.users'] });
   }
 
+  const mostReactedMessagesByUniqueUsers = await connection.query(
+    //`SELECT * from discord_message_reaction_count where from_id = $3 AND timestamp between $1 and $2 AND plain_text != '' LIMIT 1`,
+    `SELECT * 
+    from discord_message_reaction_user_count
+    where from_id = $3 
+    AND timestamp between $1 and $2 
+    LIMIT 1`,
+    [rangeStartDate, rangeEndDate, userId],
+  );
+  const mostReactedMessageByUniqueUsers = mostReactedMessagesByUniqueUsers?.[0];
+  let mostReactedMessageDiscordByUniqueUsers: Message<boolean> | undefined;
+  let mostReactedMessageDbByUniqueUsers: DiscordMessage | undefined;
+  if (mostReactedMessageByUniqueUsers) {
+    const channel = guild.channels.cache.get(mostReactedMessageByUniqueUsers.channel_id);
+    if (channel && channel.isTextBased()) {
+      mostReactedMessageDiscordByUniqueUsers = await channel.messages.fetch(mostReactedMessageByUniqueUsers.id);
+    }
+    mostReactedMessageDbByUniqueUsers = await connection
+      .getRepository(DiscordMessage)
+      .findOne(mostReactedMessageByUniqueUsers.id, { relations: ['reactions', 'reactions.users'] });
+  }
   const numberFormatter = new Intl.NumberFormat('de-DE');
   const messageCountResp: { count: string; word_count: string; message_length: string }[] = await connection.query(
     //`SELECT * from discord_message_reaction_count where from_id = $3 AND timestamp between $1 and $2 AND plain_text != '' LIMIT 1`,
@@ -341,6 +366,21 @@ export async function generateStats(userId: string) {
     `,
     [rangeStartDate, rangeEndDate, userId],
   );
+
+  const activeDaysPerMonthResp: { count: string; month: string }[] = await connection.query(
+    `SELECT month, count(month) as count 
+    from (SELECT DISTINCT EXTRACT(MONTH FROM timestamp) as month,
+          EXTRACT(DAY FROM timestamp) as day
+          from discord_message 
+          WHERE from_id = $3 
+          AND timestamp between $1 and $2 
+          ORDER BY month, day) timestamps
+    GROUP BY month
+    ORDER BY month`,
+    [rangeStartDate, rangeEndDate, userId],
+  );
+  const activeDaysPerMonth = groupByMonth(activeDaysPerMonthResp);
+
   const browser = await chromium.launch({
     headless: true,
   });
@@ -351,6 +391,11 @@ export async function generateStats(userId: string) {
     },
     deviceScaleFactor: 2,
   });
+  const showFooter = mostReactedMessageDb && !!mostReactedMessage?.reactions;
+  const showFooterRight =
+    mostReactedMessageDbByUniqueUsers &&
+    mostReactedMessageDbByUniqueUsers?.id !== mostReactedMessageDb?.id &&
+    !!mostReactedMessageByUniqueUsers?.reactions;
   let content = `
 <html>
   <head>
@@ -372,7 +417,7 @@ export async function generateStats(userId: string) {
         grid-template-areas:
           "headerimg header header header"
           "left left right right"
-          "footer footer footer footer";
+          ${showFooterRight ? '"footer footer footerright footerright"' : '"footer footer footer footer"'};
         width: 100%;
       }
       .headerimg {
@@ -404,6 +449,9 @@ export async function generateStats(userId: string) {
       
       .footer {
         grid-area: footer;
+      }
+      .footerright {
+        grid-area: footerright;
       }
 
       .header {
@@ -500,6 +548,10 @@ export async function generateStats(userId: string) {
             <td>${numberFormatter.format(sentGifsCount)}</td>
           </tr>
           <tr>
+            <td><strong>Aktive Tage:</strong>&nbsp;&nbsp;&nbsp;</td>
+            <td>${numberFormatter.format(activeDaysPerMonth.reduce((acc, next) => Number(acc) + Number(next), 0))}</td>
+          </tr>
+          <tr>
             <td><strong>Hochgeladene Bilder/Videos:</strong>&nbsp;&nbsp;&nbsp;</td>
             <td>${numberFormatter.format(sentMessagesWithAttachments)}</td>
           </tr>
@@ -560,61 +612,27 @@ export async function generateStats(userId: string) {
         
       </div>
       <div class="right">
-        <canvas id="chart1" width="390" height="200"></canvas>
-        <canvas id="chart2" width="390" height="200"></canvas>
-        <canvas id="chart3" width="390" height="200"></canvas>
+        <canvas id="chart1" width="390" height="190"></canvas>
+        <canvas id="chart2" width="390" height="190"></canvas>
+        <canvas id="chart3" width="390" height="190"></canvas>
+        <canvas id="chart4" width="390" height="190"></canvas>
       </div>
       <div class="footer">
         ${
-          mostReactedMessage && mostReactedMessage?.reactions
-            ? `
-        <hr width="100%" />
-        <p style="margin-top: 4px; max-width: 100%;">
-          <strong>Deine beliebteste Nachricht:</strong>
-          <br />
-          <br />
-          <span style="overflow-wrap: break-word; word-wrap: break-word; ">"${
-            dcMessage?.type === MessageType.UserJoin ? 'ist dem Server beigetreten.' : mostReactedMessage?.plain_text || '-- Kein Inhalt --'
-          }"<i> am ${moment(mostReactedMessage?.timestamp).format('DD.MM.YYYY')} um ${moment(mostReactedMessage?.timestamp).format(
-                'HH:mm',
-              )}${
-                dcMessage?.channel &&
-                dcMessage.channel.isTextBased() &&
-                (dcMessage.channel instanceof NewsChannel ||
-                  dcMessage.channel instanceof ThreadChannel ||
-                  dcMessage.channel instanceof TextChannel)
-                  ? ` in #${dcMessage.channel.name}`
-                  : ''
-              }</i></span>
-          <br />
-          ${
-            [
-              ...(dcMessage?.attachments?.filter((a) => a.contentType?.startsWith('image') ?? false)?.map((a) => a.url) ?? []),
-              ...(dcMessage?.embeds?.map((e) => e.image?.url ?? e.thumbnail?.url) ?? []),
-            ]
-              ?.map((url) => `<img src="${url}" style="max-height: 100px; max-width: 100px; margin: 3px;" />`)
-              ?.join('') ?? ''
-          }
-          <br />
-          <span style="line-height: 170%">
-          ${
-            dcMessage?.reactions.cache
-              .map(
-                (r) =>
-                  `<span class="top-message-reaction" style="">${r.count}x&nbsp;${
-                    r.emoji.id ? `<:${r.emoji.name}:${r.emoji.id}>` : r.emoji.name
-                  }</span>`,
-              )
-              .join('') ?? ''
-          }
-          </span>
-          <br />
-          <strong>➡ ${mostReactedMessage?.reactions} Reaktionen <:suunHype:890275297969176656></strong>
-        </p>
-        `
+          showFooter
+            ? formatMostReactedMessage(mostReactedMessageDiscord, mostReactedMessageDb!, 'Deine Nachricht mit den meisten Reaktionen:')
             : ''
         }
       </div>
+      ${
+        showFooterRight
+          ? `<div class="footerright"> ${formatMostReactedMessage(
+              mostReactedMessageDiscordByUniqueUsers,
+              mostReactedMessageDbByUniqueUsers!,
+              'Deine Nachricht mit den meisten reagierten Personen:',
+            )}</div>`
+          : ''
+      }
     </div>
   </body>
   <script>
@@ -747,6 +765,51 @@ export async function generateStats(userId: string) {
     });
 
     
+    const chart4Ctx = document.getElementById("chart4").getContext("2d");
+    const chart4 = new Chart(chart4Ctx, {
+      type: "bar",
+
+      data: {
+        labels: [
+          "Jan",
+          "Feb",
+          "Mär",
+          "Apr",
+          "Mai",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Okt",
+          "Nov",
+          "Dez",
+        ],
+        datasets: [
+          {
+            label: "Aktive Tage nach Monat",
+            data: ${JSON.stringify(activeDaysPerMonth)},
+            borderWidth: 0,
+            borderColor: "#D589FF",
+            color: "#D589FF",
+            backgroundColor: "#D589FF",
+            fill: "#D589FF",
+          },
+        ],
+      },
+      options: {
+        pointRadius: 0,
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
+        },
+        animation: {
+          duration: 0,
+        },
+      },
+    });
+
+    
   </script>
 </html>
 
@@ -754,7 +817,7 @@ export async function generateStats(userId: string) {
   content = replaceEmotesInHtml(content);
   content = await replaceMentionsInHtml(content);
   content = await replaceChannelsInHtml(content);
-  // writeFileSync(`data/recap/recap_${(member.nickname ?? member.user.tag)?.replace(/[\W_]+/g, '')}_${userId}.html`, content);
+  writeFileSync(`data/recap/recap_${(member?.nickname ?? member?.user.tag ?? user.tag)?.replace(/[\W_]+/g, '')}_${userId}.html`, content);
 
   await page.setContent(content);
 
@@ -763,7 +826,57 @@ export async function generateStats(userId: string) {
   writeFileSync(`data/recap/recap_${(member?.nickname ?? member?.user.tag ?? user.tag)?.replace(/[\W_]+/g, '')}_${userId}.png`, buffer);
   console.log('done');
   await browser.close();
-  return { buffer, mostLikedMessageUrl: dcMessage ? dcMessage.url : undefined };
+  return { buffer, mostLikedMessageUrl: mostReactedMessageDiscord ? mostReactedMessageDiscord.url : undefined };
+}
+
+function formatMostReactedMessage(dcMessage: Message<boolean> | undefined, mostReactedMessageDb: DiscordMessage, title: string) {
+  return `
+        <hr width="100%" />
+        <p style="margin-top: 4px; max-width: 100%;">
+          <strong>${title}</strong>
+          <br />
+          <br />
+          <span style="overflow-wrap: break-word; word-wrap: break-word; ">"${
+            dcMessage?.type === MessageType.UserJoin
+              ? 'ist dem Server beigetreten.'
+              : mostReactedMessageDb?.plainText || '-- Kein Inhalt --'
+          }"<i> am ${moment(mostReactedMessageDb?.timestamp).format('DD.MM.YYYY')} um ${moment(mostReactedMessageDb?.timestamp).format(
+    'HH:mm',
+  )}${
+    dcMessage?.channel &&
+    dcMessage.channel.isTextBased() &&
+    (dcMessage.channel instanceof NewsChannel || dcMessage.channel instanceof ThreadChannel || dcMessage.channel instanceof TextChannel)
+      ? ` in #${dcMessage.channel.name}`
+      : ''
+  }</i></span>
+          <br />
+          ${
+            [
+              ...(dcMessage?.attachments?.filter((a) => a.contentType?.startsWith('image') ?? false)?.map((a) => a.url) ?? []),
+              ...(dcMessage?.embeds?.map((e) => e.image?.url ?? e.thumbnail?.url) ?? []),
+            ]
+              ?.map((url) => `<img src="${url}" style="max-height: 100px; max-width: 100px; margin: 3px;" />`)
+              ?.join('') ?? ''
+          }
+          <br />
+          <span style="line-height: 170%">
+          ${
+            dcMessage?.reactions.cache
+              .map(
+                (r) =>
+                  `<span class="top-message-reaction" style="">${r.count}x&nbsp;${
+                    r.emoji.id ? `<:${r.emoji.name}:${r.emoji.id}>` : r.emoji.name
+                  }</span>`,
+              )
+              .join('') ?? ''
+          }
+          </span>
+          <br />
+          <strong>➡ ${mostReactedMessageDb?.reactions?.reduce((acc, next) => acc + next.count, 0) ?? 0} Reaktionen von ${
+    uniq(mostReactedMessageDb.reactions.flatMap((re) => re.users?.map((u) => u.id))).length
+  } Personen <:suunHype:890275297969176656> </strong>
+        </p>
+        `;
 }
 
 function groupByHour(messageCountPerHourResp: { count: string; hour: string }[]) {
@@ -785,7 +898,7 @@ function groupByDayOfWeek(messageCountDayOfWeekResp: { count: string; dow: strin
 }
 
 function groupByMonth(messageCountPerMonthResp: { count: string; month: string }[]) {
-  const unsortedMonths = messageCountPerMonthResp.reduce((acc: any, next: any) => {
+  const unsortedMonths: Record<string, number> = messageCountPerMonthResp.reduce((acc: any, next: any) => {
     acc[Number(next.month)] = next.count;
     return acc;
   }, {});
