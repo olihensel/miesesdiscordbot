@@ -629,7 +629,7 @@ export async function generateStats(userId: string) {
           ? `<div class="footerright"> ${formatMostReactedMessage(
               mostReactedMessageDiscordByUniqueUsers,
               mostReactedMessageDbByUniqueUsers!,
-              'Deine Nachricht mit den meisten reagierten Personen:',
+              'Deine Nachricht mit den meisten reagierenden Personen:',
             )}</div>`
           : ''
       }
