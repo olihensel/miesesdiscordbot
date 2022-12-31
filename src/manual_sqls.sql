@@ -3,7 +3,7 @@
 SELECT u.display_name, u.id, count(u.id) as count
 FROM "discord_message" m
 left join discord_user u on m.from_id = u.id
-WHERE timestamp between '2021-01-01' and '2022-01-01' 
+WHERE timestamp between '2022-01-01' and '2023-01-01' 
 GROUP BY u.display_name, u.id
 ORDER BY count  DESC
 LIMIT 50
@@ -12,7 +12,7 @@ LIMIT 50
 -- user with most emotes
 SELECT count(emote) as count, emote
 FROM "discord_message_flat_emotes"
-WHERE timestamp between '2021-01-01' and '2022-01-01' 
+WHERE timestamp between '2022-01-01' and '2023-01-01' 
 GROUP BY emote
 ORDER BY count(emote) desc
 LIMIT 10
@@ -21,7 +21,7 @@ LIMIT 10
 SELECT count(id) as count,
 EXTRACT(MONTH from timestamp) as month
 FROM discord_message
-WHERE timestamp between '2021-01-01' and '2022-01-01' 
+WHERE timestamp between '2022-01-01' and '2023-01-01' 
 GROUP BY month
 ORDER BY month asc
 
@@ -29,7 +29,7 @@ ORDER BY month asc
 SELECT count(id) as count,
 EXTRACT(DOW from timestamp) as dayofweek
 FROM discord_message
-WHERE timestamp between '2021-01-01' and '2022-01-01' 
+WHERE timestamp between '2022-01-01' and '2023-01-01' 
 GROUP BY dayofweek
 ORDER BY dayofweek asc
 
@@ -37,12 +37,17 @@ ORDER BY dayofweek asc
 SELECT count(id) as count,
 EXTRACT(hour from timestamp) as hour
 FROM discord_message
-WHERE timestamp between '2021-01-01' and '2022-01-01' 
+WHERE timestamp between '2022-01-01' and '2023-01-01' 
 GROUP BY hour
 ORDER BY hour asc
 
 -- count of used emotes
-select sum(a.emote_length) from (SELECT array_length(emotes,1) as emote_length FROM discord_message WHERE array_length(emotes,1) is not null ORDER BY emote_length desc) a
+select sum(a.emote_length) from (
+  SELECT array_length(emotes,1) as emote_length 
+  FROM discord_message 
+  WHERE array_length(emotes,1) is not null 
+  AND m.timestamp between '2022-01-01' and '2023-01-01'
+  ORDER BY emote_length desc) a
 
 -- count of messages, words, letters
 SELECT count(id) as message_count,
@@ -54,6 +59,7 @@ WHERE timestamp between '2021-01-01' and '2022-01-01'
 -- thanks absolute
 SELECT count(msg.id) as count, u.display_name, u.username FROM (SELECT * FROM discord_message WHERE words && '{"danke", "bitte", "dankeschön", "bitteschön", "thx", "ty"}') msg
 LEFT JOIN discord_user u on u.id = msg.from_id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.username, u.display_name
 ORDER BY count desc
 limit 100
@@ -63,7 +69,7 @@ select danke.count as dankecount, danke.display_name, danke.username, count(msg.
 FROM(SELECT count(msg.id) as count, u.id, u.display_name, u.username 
 FROM (SELECT * FROM discord_message WHERE words && '{"danke", "bitte", "dankeschön", "bitteschön", "thx", "ty"}') msg
 LEFT JOIN discord_user u on u.id = msg.from_id
-WHERE msg.timestamp between '2021-01-01' and '2022-01-01'
+WHERE msg.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.username, u.display_name, u.id
 ORDER BY count desc
 limit 10) danke
@@ -74,6 +80,9 @@ order by ratio desc
 -- most reacting person
 SELECT u.display_name, u.username, count(u.username) as count FROM "discord_reaction_users" ru
 LEFT JOIN discord_user u on ru.discord_user_id = u.id
+LEFT JOIN discord_reaction r on ru.discord_reaction_id = r.id
+LEFT JOIN discord_message m on r.message_id = m.id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.display_name, u.username
 ORDER BY count desc
 LIMIT 50
@@ -81,6 +90,7 @@ LIMIT 50
 -- most emote using person
 SELECT u.username, u.display_name, count(u.username) as count FROM "discord_message_flat_emotes" m
 JOIN discord_user u on u.id = m.from_id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.username, u.display_name
 ORDER BY count desc
 LIMIT 50
@@ -89,6 +99,7 @@ LIMIT 50
 SELECT u.username, count(u.username) count
 FROM "discord_message_mentions_without_replies" me
 LEFT JOIN discord_message m on me.discord_message_id = m.id LEFT JOIN discord_user u on m.from_id = u.id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.username
 ORDER BY count desc
 LIMIT 50
@@ -98,6 +109,7 @@ LIMIT 50
 SELECT u.username, count(u.username) count
 FROM "discord_message_mentions_without_replies" me
 LEFT JOIN discord_message m on me.discord_message_id = m.id LEFT JOIN discord_user u on me.discord_user_id = u.id GROUP BY u.username
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 ORDER BY count desc
 LIMIT 50
 
@@ -107,6 +119,7 @@ from (SELECT u.username, count(u.username) count
 FROM "discord_message_mentions_only_replies" me
 LEFT JOIN discord_message m on me.discord_message_id = m.id
 LEFT JOIN discord_user u on me.discord_user_id = u.id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.username
 ORDER BY count desc
 LIMIT 100) reply_receiver
@@ -115,9 +128,10 @@ SELECT u.username, count(u.username) count
 FROM "discord_message_mentions_only_replies" me
 LEFT JOIN discord_message m on me.discord_message_id = m.id
 LEFT JOIN discord_user u on m.from_id = u.id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.username
 ORDER BY count desc
-LIMIT 100) reply_sender on reply_receiver.username = reply_sender .username
+LIMIT 100) reply_sender on reply_receiver.username = reply_sender.username
 order by sum desc
 
 -- most used emote
@@ -140,14 +154,16 @@ LIMIT 10
 -- all gifs
 select m.id, m.plain_text, m.embeds->0->'type' as type, m.embeds->0 as embed from discord_message m
 WHERE m.embeds is not null
+AND m.timestamp between '2022-01-01' and '2023-01-01'
 AND (
   (m.embeds->0->>'type' = 'gifv') 
   OR (m.embeds->0->>'type' = 'image' AND m.embeds->0->'thumbnail'->>'url' LIKE '%.gif')
 )
 
 -- top x gifs
-select count(split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1)) as count, split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1) as url from discord_message m
+select count(split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1)) as count, split_part(COALESCE(m.embeds->0->'video'->>'url', m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1) as url from discord_message m
 WHERE m.embeds is not null
+AND m.timestamp between '2022-01-01' and '2023-01-01'
 AND (
   (m.embeds->0->>'type' = 'gifv') 
   OR (m.embeds->0->>'type' = 'image' AND m.embeds->0->'thumbnail'->>'url' LIKE '%.gif')
