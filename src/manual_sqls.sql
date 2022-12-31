@@ -234,3 +234,31 @@ AND (m.embeds is not null OR m.attachments is not null)
 GROUP BY u.display_name, u.username,  u.id
 ORDER BY count  DESC
 LIMIT 50
+
+-- top channel with total messages and average messages per day
+SELECT c.display_name, c.id, count(c.id) as count, CAST (count(c.id) as FLOAT) / 365 as avg_per_day
+FROM "discord_message" m
+left join discord_channel c on m.channel_id = c.id
+WHERE timestamp between '2022-01-01' and '2023-01-01'
+AND c.is_thread = false
+GROUP BY c.display_name, c.id
+ORDER BY count  DESC
+LIMIT 50
+
+-- top channel with total messaages and average messages per day since first message in channel
+SELECT c.display_name, c.id, count(c.id) as count, CAST (count(c.id) as FLOAT) / (CAST (EXTRACT (EPOCH FROM ('2023-01-01' - min(m.timestamp))) as FLOAT) / 86400) as avg_per_day
+FROM "discord_message" m
+left join discord_channel c on m.channel_id = c.id
+WHERE timestamp between '2022-01-01' and '2023-01-01'
+AND c.is_thread = false
+AND c.id IN (
+    SELECT channel_id
+    FROM discord_message
+    WHERE timestamp between '2022-01-01' and '2023-01-01'
+    AND timestamp IS NOT NULL
+    GROUP BY channel_id
+    HAVING count(*) > 1
+)
+GROUP BY c.display_name, c.id
+ORDER BY avg_per_day DESC
+LIMIT 50
