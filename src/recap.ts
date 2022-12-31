@@ -67,8 +67,8 @@ client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
   // const channel = client.guilds.cache.get('703705066351362068')?.channels.cache.get('890737558894567554');
   client.on('messageCreate', async (msg) => {
-    if (msg.channelId !== '1058737966635290644') return;
-    if (msg.guildId !== nilpferdServerId) return;
+    if (msg.channelId !== '1058804666802114671') return;
+    if (msg.guildId !== suuncordServerId) return;
     if (!msg.channel.isTextBased()) return;
     console.log(msg.author.username, msg.content);
     let user: User | undefined;
