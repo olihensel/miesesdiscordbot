@@ -9,13 +9,30 @@ ORDER BY count  DESC
 LIMIT 50
 
 
--- user with most emotes
-SELECT count(emote) as count, emote
-FROM "discord_message_flat_emotes"
-WHERE timestamp between '2022-01-01' and '2023-01-01' 
-GROUP BY emote
-ORDER BY count(emote) desc
-LIMIT 10
+--- active users by month
+SELECT count(distinct from_id) as count,
+EXTRACT(MONTH from timestamp) as month
+FROM discord_message
+WHERE timestamp between '2022-01-01' and '2023-01-01'
+GROUP BY month
+ORDER BY month asc
+
+--- active users by day of week (0=sunday)
+SELECT count(distinct from_id) as count,
+EXTRACT(DOW from timestamp) as dayofweek
+FROM discord_message
+WHERE timestamp between '2022-01-01' and '2023-01-01'
+GROUP BY dayofweek
+ORDER BY dayofweek asc
+
+-- active users by hour
+SELECT count(distinct from_id) as count,
+EXTRACT(hour from timestamp) as hour
+FROM discord_message
+WHERE timestamp between '2022-01-01' and '2023-01-01'
+GROUP BY hour
+ORDER BY hour asc
+
 
 -- message by month
 SELECT count(id) as count,
@@ -57,9 +74,9 @@ FROM discord_message
 WHERE timestamp between '2021-01-01' and '2022-01-01' 
 
 -- thanks absolute
-SELECT count(msg.id) as count, u.display_name, u.username FROM (SELECT * FROM discord_message WHERE words && '{"danke", "bitte", "dankeschön", "bitteschön", "thx", "ty"}') msg
+SELECT count(msg.id) as count, u.display_name, u.username FROM (SELECT * FROM discord_message WHERE words && '{"danke", "dank", "bitte", "dankeschön", "bitteschön", "thx", "ty", "thanks"}') msg
 LEFT JOIN discord_user u on u.id = msg.from_id
-WHERE m.timestamp between '2022-01-01' and '2023-01-01'
+WHERE msg.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY u.username, u.display_name
 ORDER BY count desc
 limit 100
@@ -76,6 +93,39 @@ limit 10) danke
 left join discord_message msg on msg.from_id = danke.id
 group by danke.display_name, danke.username, danke.count
 order by ratio desc
+
+-- person with most sent reactions "monkaTOS" or "policeHit" (not used)
+SELECT u.display_name, u.username, count(u.username) as count FROM "discord_reaction_users" ru
+LEFT JOIN discord_user u on ru.discord_user_id = u.id
+LEFT JOIN discord_reaction r on ru.discord_reaction_id = r.id
+LEFT JOIN discord_message m on r.message_id = m.id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
+AND r.emote in ('monkaTOS', 'policeHit', 'PES2_PoliceHit')
+GROUP BY u.display_name, u.username
+ORDER BY count desc
+LIMIT 50
+
+-- person with most usages of "suunMs" or "suunMS" as either emote or reaction
+SELECT COALESCE(reactions.username, emotes.username), COALESCE(reactions.username, emotes.username), reactions.count as reaction_count, emotes.count as emote_count, COALESCE(reactions.count, 0) + COALESCE(emotes.count, 0) as total_count
+FROM 
+(SELECT u.display_name, u.username, count(u.username) as count FROM "discord_reaction_users" ru
+LEFT JOIN discord_user u on ru.discord_user_id = u.id
+LEFT JOIN discord_reaction r on ru.discord_reaction_id = r.id
+LEFT JOIN discord_message m on r.message_id = m.id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
+AND r.emote in ('suunMs', 'suunMS')
+GROUP BY u.display_name, u.username
+) reactions
+full outer join (
+SELECT u.display_name, u.username, count(u.username) as count FROM "discord_message_flat_emotes" m
+JOIN discord_user u on u.id = m.from_id
+WHERE m.timestamp between '2022-01-01' and '2023-01-01'
+AND m.emote in ('suunMs', 'suunMS')
+GROUP BY u.display_name, u.username
+ORDER BY count desc
+LIMIT 50
+) emotes on reactions.username = emotes.username
+ORDER BY total_count desc
 
 -- most reacting person
 SELECT u.display_name, u.username, count(u.username) as count FROM "discord_reaction_users" ru
@@ -108,8 +158,9 @@ LIMIT 50
 
 SELECT u.username, count(u.username) count
 FROM "discord_message_mentions_without_replies" me
-LEFT JOIN discord_message m on me.discord_message_id = m.id LEFT JOIN discord_user u on me.discord_user_id = u.id GROUP BY u.username
+LEFT JOIN discord_message m on me.discord_message_id = m.id LEFT JOIN discord_user u on me.discord_user_id = u.id
 WHERE m.timestamp between '2022-01-01' and '2023-01-01'
+GROUP BY u.username
 ORDER BY count desc
 LIMIT 50
 
@@ -172,3 +223,14 @@ AND m.timestamp between '2022-01-01' and '2023-01-01'
 GROUP BY url
 ORDER BY count desc
 LIMIT 100
+
+-- witzbold
+SELECT u.display_name, u.username, u.id, count(u.id) as count
+FROM "discord_message" m
+left join discord_user u on m.from_id = u.id
+WHERE timestamp between '2022-01-01' and '2023-01-01'
+AND m.channel_id = '754680507782004796'
+AND (m.embeds is not null OR m.attachments is not null)
+GROUP BY u.display_name, u.username,  u.id
+ORDER BY count  DESC
+LIMIT 50
