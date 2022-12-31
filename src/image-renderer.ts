@@ -46,16 +46,27 @@ if (require.main === module) {
 
     const activeDays = (
       (await connection.query(
-        `SELECT DISTINCT DATE(timestamp) as date, count(*) as count
+        `SELECT t.date, count(*) from (SELECT DATE(timestamp) as date, count(from_id) as count, from_id
     from discord_message 
-    WHERE from_id = $3 
-    AND timestamp between $1 and $2
-    GROUP BY date
-    ORDER BY date desc`,
-        ['2022-01-01', '2023-01-01', process.argv.pop() ?? ''],
+    WHERE timestamp between $1 and $2
+    GROUP BY date, from_id
+    ORDER BY date desc) as t
+    GROUP BY t.date
+    ORDER BY t.date desc
+    `,
+        ['2022-01-01', '2023-01-01'],
       )) as { date: string; count: number }[]
     ).map((entry) => ({ day: moment(entry.date).format('YYYY-MM-DD'), count: entry.count }));
-    console.log(activeDays);
+    const maxMessagesPerDay = Math.max(...activeDays.map((d) => d.count));
+    const minMessagesPerDay = Math.min(...activeDays.map((d) => d.count));
+    console.log(
+      activeDays,
+      maxMessagesPerDay,
+      activeDays.find((d) => Number(d.count) === maxMessagesPerDay)?.day,
+      minMessagesPerDay,
+      activeDays.find((d) => Number(d.count) === minMessagesPerDay)?.day,
+    );
+
     const calendar = await renderCalendar(activeDays);
     writeFileSync('calendar.png', calendar.buffer);
     await connection.close();
