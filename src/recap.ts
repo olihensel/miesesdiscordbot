@@ -11,6 +11,7 @@ import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import * as ormConfig from '../ormconfig.json';
 import { DiscordMessage } from './entity/discord-message';
 import { renderCalendar } from './image-renderer';
+import { getWordOfTheYearForUser } from './word-of-the-year';
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -43,7 +44,7 @@ client.on('ready', async () => {
   //   const msg = await channel.messages.fetch('1049427095777968228');
   //   console.log(msg);
   // }
-  /*
+
   const testUsers = [
     oli,
     '368923494538412034',
@@ -57,11 +58,10 @@ client.on('ready', async () => {
   ];
 
   for (const user of testUsers) {
-    console.log('generating user', user);
     const stats = await generateStats(user);
     console.log(stats);
   }
-*/
+
   // client.destroy();
 
   console.log(`Logged in as ${client?.user?.tag}!`);
@@ -165,7 +165,8 @@ export async function getEmoteTag(emoteName: string) {
   }
 }
 
-export async function generateStats(userId: string) {
+export async function generateStats(userId: string, hideWordOfTheYear: boolean = true) {
+  console.log('generating user', userId);
   if (!isReady) {
     throw new Error('Discord client is not ready yet');
   }
@@ -337,6 +338,10 @@ export async function generateStats(userId: string) {
   );
   const sortedSentGifsPerMonths = groupByMonth(sentGifsPerMonthResp);
 */
+
+  const wordOfTheYearForUser = hideWordOfTheYear ? undefined : await getWordOfTheYearForUser(connection, userId);
+  const showWordOfTheYear = (wordOfTheYearForUser?.orderedByCount?.[0]?.word?.count ?? 0) > 10;
+
   const mostUsedEmotes: { count: string; emote: string }[] = await connection.query(
     `SELECT count(emote) as count, emote
     FROM "discord_message_flat_emotes"
@@ -344,7 +349,7 @@ export async function generateStats(userId: string) {
     AND timestamp between $1 and $2 
     GROUP BY emote
     ORDER BY count(emote) desc
-    LIMIT 7`,
+    LIMIT ${showWordOfTheYear ? 5 : 7}`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostUsedReactions: { count: string; emote: string }[] = await connection.query(
@@ -356,7 +361,7 @@ export async function generateStats(userId: string) {
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT 7`,
+    LIMIT ${showWordOfTheYear ? 5 : 7}`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostReceivedReaction: { count: string; emote: string }[] = await connection.query(
@@ -367,7 +372,7 @@ export async function generateStats(userId: string) {
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT 7`,
+    LIMIT ${showWordOfTheYear ? 5 : 7}`,
     [rangeStartDate, rangeEndDate, userId],
   );
 
@@ -380,8 +385,7 @@ export async function generateStats(userId: string) {
           ORDER BY count(m.channel_id) desc) m
     LEFT JOIN discord_channel c on c.id = m.channel_id
     ORDER BY count desc
-    LIMIT 7
-    `,
+    LIMIT ${showWordOfTheYear ? 5 : 7}`,
     [rangeStartDate, rangeEndDate, userId],
   );
 
@@ -641,6 +645,26 @@ export async function generateStats(userId: string) {
           ).join('\n')}
           </ol>
         </div>
+        ${
+          showWordOfTheYear
+            ? `
+        <hr width="100%" />
+        
+        <div>
+          <span style="margin-bottom: 8px"><strong>Wörter, die fast nur du verwendest</strong></span>
+          <ol style="margin: 0px; font-size: 2em;">
+          ${wordOfTheYearForUser?.orderedByCount
+            .slice(0, 5)
+            .map(
+              (word) =>
+                `<li><span style="font-size: 0.5em; font-weight: bold;">${word.word.word}</span> <span style="font-size: 0.5em;">${word.word.count}x</span></li>`,
+            )
+            .join('\n')}
+          </ol>
+        </div>
+        `
+            : ''
+        }
         
       </div>
       <div class="right">
