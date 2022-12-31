@@ -44,7 +44,7 @@ client.on('ready', async () => {
   //   const msg = await channel.messages.fetch('1049427095777968228');
   //   console.log(msg);
   // }
-
+  /*
   const testUsers = [
     oli,
     '368923494538412034',
@@ -61,7 +61,7 @@ client.on('ready', async () => {
     const stats = await generateStats(user);
     console.log(stats);
   }
-
+*/
   // client.destroy();
 
   console.log(`Logged in as ${client?.user?.tag}!`);
@@ -90,8 +90,32 @@ client.on('ready', async () => {
 
         let content = `Hier ist dein suuN-Discord Recap für das Jahr 2022, <@${user.id}>!`;
         if (stats.mostLikedMessageUrl) {
-          content += '\n' + `Link zu deiner Nachricht mit den meisten Reaktionen ${stats.mostLikedMessageUrl}`;
+          content += '\n' + `Link zu deiner Nachricht mit den meisten Reaktionen: ${stats.mostLikedMessageUrl}`;
         }
+
+        try {
+          const connection = await connectionPromise;
+
+          const topGifs = await connection.query(
+            //`SELECT * from discord_message_reaction_count where from_id = $3 AND timestamp between $1 and $2 AND plain_text != '' LIMIT 1`,
+            `select max(m.plain_text) as plain_text, count(split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1)) as count, split_part(COALESCE(m.embeds->0->'video'->>'url', m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1) as url from discord_message m
+            WHERE m.embeds is not null
+            AND from_id = $3 
+            AND m.timestamp between $1 and $2 
+            AND (
+              (m.embeds->0->>'type' = 'gifv') 
+              OR (m.embeds->0->>'type' = 'image' AND m.embeds->0->'thumbnail'->>'url' LIKE '%.gif')
+            )
+            GROUP BY url
+            ORDER BY count desc
+            LIMIT 1`,
+            [rangeStartDate, rangeEndDate, user.id],
+          );
+          const topGif: { plain_text: string; count: number; url: string } | undefined = topGifs?.[0];
+
+          const url = topGif?.plain_text.match(/(https?:\/\/[^\s]+)/g)?.[0] ?? topGif?.url;
+          content += `\nDein meistgesendetes GIF: ${url} (${topGif?.count}x)`;
+        } catch (e) {}
         // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
         await msg.reply({
           content: content,

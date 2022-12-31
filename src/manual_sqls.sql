@@ -212,7 +212,7 @@ AND (
 )
 
 -- top x gifs
-select count(split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1)) as count, split_part(COALESCE(m.embeds->0->'video'->>'url', m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1) as url from discord_message m
+select min(m.message) as message, count(split_part(COALESCE(m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1)) as count, split_part(COALESCE(m.embeds->0->'video'->>'url', m.embeds->0->'thumbnail'->>'url', m.embeds->0->'image'->>'url'), '?', 1) as url from discord_message m
 WHERE m.embeds is not null
 AND m.timestamp between '2022-01-01' and '2023-01-01'
 AND (
