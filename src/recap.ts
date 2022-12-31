@@ -1,5 +1,5 @@
 require('dotenv').config();
-import { Client, GatewayIntentBits, Message, MessageType, NewsChannel, TextChannel, ThreadChannel } from 'discord.js';
+import { Client, GatewayIntentBits, Message, MessageType, NewsChannel, TextChannel, ThreadChannel, User } from 'discord.js';
 import { random } from 'faker';
 import { writeFileSync } from 'fs';
 import { compact, times, uniq } from 'lodash';
@@ -19,11 +19,12 @@ const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildEmojisAndStickers,
     GatewayIntentBits.GuildMessageTyping,
+    GatewayIntentBits.MessageContent,
   ],
 });
 const connectionPromise = createConnection({ ...ormConfig, type: 'postgres', namingStrategy: new SnakeNamingStrategy() });
-
 const suuncordServerId = '717034183465107456';
+const nilpferdServerId = '703705066351362068';
 const oli = '267745416186036225';
 
 const rangeStartDate = moment('2022-01-01').startOf('day').toDate();
@@ -42,7 +43,7 @@ client.on('ready', async () => {
   //   const msg = await channel.messages.fetch('1049427095777968228');
   //   console.log(msg);
   // }
-
+  /*
   const testUsers = [
     oli,
     '368923494538412034',
@@ -60,26 +61,40 @@ client.on('ready', async () => {
     const stats = await generateStats(user);
     console.log(stats);
   }
-
-  client.destroy();
-  return;
+*/
+  // client.destroy();
 
   console.log(`Logged in as ${client?.user?.tag}!`);
   // const channel = client.guilds.cache.get('703705066351362068')?.channels.cache.get('890737558894567554');
   client.on('messageCreate', async (msg) => {
-    if (
-      msg.content === '!recap' &&
-      msg.channel.isTextBased() &&
-      msg.guildId === suuncordServerId &&
-      msg.channelId === '926423405668995073'
-    ) {
-      try {
-        const stats = await generateStats(msg.author.id);
-        const member = msg.author?.username.replace(/[\W_]+/g, '');
+    if (msg.channelId !== '1058737966635290644') return;
+    if (msg.guildId !== nilpferdServerId) return;
+    if (!msg.channel.isTextBased()) return;
+    console.log(msg.author.username, msg.content);
+    let user: User | undefined;
+    if (msg.content.startsWith('!recapfor')) {
+      if (!['267745416186036225'].includes(msg.author.id)) {
+        msg.reply('Insufficient permissions to use this command!');
+        return;
+      }
+      user = msg.mentions.users.first();
+    }
+    if (msg.content === '!recap') {
+      user = msg.author;
+    }
 
+    if (user) {
+      try {
+        const stats = await generateStats(user.id);
+        const member = user.username.replace(/[\W_]+/g, '');
+
+        let content = `Hier ist dein suuN-Discord Recap für das Jahr 2022, <@${user.id}>!`;
+        if (stats.mostLikedMessageUrl) {
+          content += '\n' + `Link zu deiner Nachricht mit den meisten Reaktionen ${stats.mostLikedMessageUrl}`;
+        }
         // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
         await msg.reply({
-          content: stats.mostLikedMessageUrl ? `Link zu deiner beliebtesten Nachricht ${stats.mostLikedMessageUrl}` : undefined,
+          content: content,
           files: [{ attachment: stats.buffer, name: `SUUNCORD-Recap-2022_${member}.png` }],
         });
       } catch (e: unknown) {
@@ -835,7 +850,7 @@ export async function generateStats(userId: string) {
   content = replaceEmotesInHtml(content);
   content = await replaceMentionsInHtml(content);
   content = await replaceChannelsInHtml(content);
-  writeFileSync(`data/recap/recap_${(member?.nickname ?? member?.user.tag ?? user.tag)?.replace(/[\W_]+/g, '')}_${userId}.html`, content);
+  // writeFileSync(`data/recap/recap_${(member?.nickname ?? member?.user.tag ?? user.tag)?.replace(/[\W_]+/g, '')}_${userId}.html`, content);
 
   await page.setContent(content);
 

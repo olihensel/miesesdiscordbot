@@ -21,15 +21,15 @@ export async function renderCalendar(activeDays: { day: string; count: number }[
       const currentDayString = date.month(month).date(day).format('YYYY-MM-DD');
       const currentDay = activeDays.find((d) => d.day === currentDayString);
       const isActive = (currentDay?.count ?? 0) > 0;
-      // calculate alpha channel linearly based on message count. 0.5 if no messages, 1 if (close to) max messages
+      // calculate alpha channel linearly based on message count. 0.2 if no messages, 1 if (close to) max messages
 
-      let alpha = isActive ? 0.2 + ((currentDay?.count ?? 0) / maxMessagesPerDay) * (1 - 0.2) : 0.2;
+      let alpha = isActive ? 0.1 + ((currentDay?.count ?? 0) / maxMessagesPerDay) * (1 - 0.1) : 0.1;
       if (alpha > 1) alpha = 1;
-      alpha = 1 - alpha;
+      // alpha = 1 - alpha;
 
-      //ctx.fillStyle = 'white';
-      //ctx.fillRect(month * columnWidth + 1, (day - 1) * rowHeight + 1, columnWidth - 2, rowHeight - 2);
-      // fill in box with 1 px border transparent if not active, fill violet if active
+      ctx.fillStyle = '#333333';
+      ctx.fillRect(month * columnWidth + 1, (day - 1) * rowHeight + 1, columnWidth - 2, rowHeight - 2);
+
       ctx.fillStyle = isActive ? '#00BBC6' + Math.round(alpha * 255).toString(16) : '#333333';
       ctx.fillRect(month * columnWidth + 1, (day - 1) * rowHeight + 1, columnWidth - 2, rowHeight - 2);
     }
