@@ -10,6 +10,7 @@ import { createConnection } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import * as ormConfig from '../ormconfig.json';
 import { DiscordMessage } from './entity/discord-message';
+import { renderCalendar } from './image-renderer';
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -44,6 +45,8 @@ client.on('ready', async () => {
 
   const testUsers = [
     oli,
+    '368923494538412034',
+    '616563729932484647',
     '731838778976501781',
     '399686518253420564',
     '890539960808140800',
@@ -326,7 +329,7 @@ export async function generateStats(userId: string) {
     AND timestamp between $1 and $2 
     GROUP BY emote
     ORDER BY count(emote) desc
-    LIMIT 5`,
+    LIMIT 7`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostUsedReactions: { count: string; emote: string }[] = await connection.query(
@@ -338,7 +341,7 @@ export async function generateStats(userId: string) {
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT 5`,
+    LIMIT 7`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostReceivedReaction: { count: string; emote: string }[] = await connection.query(
@@ -349,7 +352,7 @@ export async function generateStats(userId: string) {
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT 5`,
+    LIMIT 7`,
     [rangeStartDate, rangeEndDate, userId],
   );
 
@@ -362,7 +365,7 @@ export async function generateStats(userId: string) {
           ORDER BY count(m.channel_id) desc) m
     LEFT JOIN discord_channel c on c.id = m.channel_id
     ORDER BY count desc
-    LIMIT 5
+    LIMIT 7
     `,
     [rangeStartDate, rangeEndDate, userId],
   );
@@ -380,6 +383,20 @@ export async function generateStats(userId: string) {
     [rangeStartDate, rangeEndDate, userId],
   );
   const activeDaysPerMonth = groupByMonth(activeDaysPerMonthResp);
+
+  const activeDays = (
+    (await connection.query(
+      `SELECT DISTINCT DATE(timestamp) as date, count(*) as count
+  from discord_message 
+  WHERE from_id = $3 
+  AND timestamp between $1 and $2
+  GROUP BY date
+  ORDER BY date desc`,
+      ['2022-01-01', '2023-01-01', userId],
+    )) as { date: string; count: number }[]
+  ).map((entry) => ({ day: moment(entry.date).format('YYYY-MM-DD'), count: entry.count }));
+
+  const activeDaysImage = await renderCalendar(activeDays);
 
   const browser = await chromium.launch({
     headless: true,
@@ -616,6 +633,7 @@ export async function generateStats(userId: string) {
         <canvas id="chart2" width="390" height="190"></canvas>
         <canvas id="chart3" width="390" height="190"></canvas>
         <canvas id="chart4" width="390" height="190"></canvas>
+        <img src="${activeDaysImage.dataUri}" style="width: 92%; height: auto; margin-left: 8%; margin-top: -5px; object-fit: fill;" />
       </div>
       <div class="footer">
         ${
@@ -666,7 +684,7 @@ export async function generateStats(userId: string) {
             label: "Gesendete Nachrichten nach Monat",
             data: ${JSON.stringify(sortedMonths)},
             borderWidth: 2,
-            borderColor: "#D589FF",
+            borderColor: "#00969E",
           },
         ],
       },
@@ -694,7 +712,7 @@ export async function generateStats(userId: string) {
             label: "Gesendete Nachrichten nach Wochentag",
             data: ${JSON.stringify(sortedDayOfWeeks)},
             borderWidth: 2,
-            borderColor: "#D589FF",
+            borderColor: "#00969E",
           },
         ],
       },
@@ -747,7 +765,7 @@ export async function generateStats(userId: string) {
             label: "Gesendete Nachrichten nach Uhrzeit",
             data: ${JSON.stringify(sortedHours)},
             borderWidth: 2,
-            borderColor: "#D589FF",
+            borderColor: "#00969E",
           },
         ],
       },
@@ -789,10 +807,10 @@ export async function generateStats(userId: string) {
             label: "Aktive Tage nach Monat",
             data: ${JSON.stringify(activeDaysPerMonth)},
             borderWidth: 0,
-            borderColor: "#D589FF",
-            color: "#D589FF",
-            backgroundColor: "#D589FF",
-            fill: "#D589FF",
+            borderColor: "#00969E",
+            color: "#00969E",
+            backgroundColor: "#00969E",
+            fill: "#00969E",
           },
         ],
       },
