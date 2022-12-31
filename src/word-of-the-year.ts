@@ -20,7 +20,7 @@ async function getNspell() {
   return _nspell;
 }
 
-async function getWordOfTheYearForUser(connection: Connection, userId: string) {
+export async function getWordOfTheYearForUser(connection: Connection, userId: string) {
   const nspell = await getNspell();
   const wordEntriesForUser: Array<{ count: number; word: string }> = await connection.query(
     `
@@ -53,31 +53,15 @@ async function getWordOfTheYearForUser(connection: Connection, userId: string) {
   });
   const orderedByFactor = orderBy(wordsWithFactors, 'factor', 'desc');
 
-  console.log(orderedByFactor.slice(0, 10));
+  // console.log(orderedByFactor.slice(0, 10));
   const orderedByCount = orderBy(
     wordsWithFactors.filter((w) => w.factor > 0.2),
     'count',
     'desc',
   );
 
-  console.log(orderedByCount.slice(0, 10));
-
-  return;
-  const wordsForAllUsers = wordEntriesForAllUsers.map((entry) => entry.word);
-  let counter = 0;
-  for (const wordEntry of wordEntriesForUser) {
-    if (
-      /*!(
-        nspell.correct(wordEntry.word) || nspell.suggest(wordEntry.word).some((res) => res.toLowerCase() === wordEntry.word.toLowerCase())
-      ) &&*/
-      !wordsForAllUsers.includes(wordEntry.word)
-    ) {
-      console.log(wordEntry);
-      if (counter++ > 30) {
-        break;
-      }
-    }
-  }
+  // console.log(orderedByCount.slice(0, 10));
+  return { orderedByFactor: orderedByFactor.slice(0, 10), orderedByCount: orderedByCount.slice(0, 10) };
 }
 
 async function main() {
@@ -88,7 +72,7 @@ async function main() {
   const topWordsWikipedia = wikipediaWordFrequencyFile.data
     .split('\n')
     .map((line) => line.split(/\s/)[0])
-    .slice(0, 50000);
+    .slice(0, 500);
 
   const connection = await createConnection({ ...ormConfig, type: 'postgres', namingStrategy: new SnakeNamingStrategy() });
   const nspell = await getNspell();
@@ -117,9 +101,10 @@ async function main() {
 }
 
 if (require.main === module) {
-  (async () => {
+  main();
+  /*(async () => {
     const connection = await createConnection({ ...ormConfig, type: 'postgres', namingStrategy: new SnakeNamingStrategy() });
     await getWordOfTheYearForUser(connection, process.argv.pop() ?? '');
     await connection.close();
-  })().catch(console.error);
+  })().catch(console.error);*/
 }
