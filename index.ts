@@ -50,10 +50,11 @@ client.on('ready', async () => {
         ['rawPosition'],
       );
       // isThread is false!, isText is true
-      channelToSendTo = orderedChannels[0]?.channel as TextChannel;
-
+      const allgeschwein = channelsWithPos.find(c => c.channel?.id === '717034183465107459')?.channel as TextChannel;
+      channelToSendTo = allgeschwein || orderedChannels[0]?.channel as TextChannel;
       console.log(channelToSendTo);
     }
+    
     if (!channelToSendTo) {
       console.log('no suitable channel found');
       continue;
@@ -143,7 +144,7 @@ client.on('ready', async () => {
 <:peepoQuatsch:875141585224994837>`;
     console.log(message);
 
-    // await channelToSendTo.send(message);
+    await channelToSendTo.send(message);
     appendFileSync(
       logfile,
       JSON.stringify({
