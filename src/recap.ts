@@ -61,7 +61,7 @@ client.on('ready', async () => {
     const stats = await generateStats(user);
     console.log(stats);
   }
-*/
+  */
   // client.destroy();
 
   console.log(`Logged in as ${client?.user?.tag}!`);
@@ -81,6 +81,11 @@ client.on('ready', async () => {
     }
     if (msg.content === '!recap') {
       user = msg.author;
+    }
+
+    if (msg.content === '!ping') {
+      msg.reply('Pong!');
+      return;
     }
 
     if (user) {
@@ -112,9 +117,10 @@ client.on('ready', async () => {
             [rangeStartDate, rangeEndDate, user.id],
           );
           const topGif: { plain_text: string; count: number; url: string } | undefined = topGifs?.[0];
-
-          const url = topGif?.plain_text.match(/(https?:\/\/[^\s]+)/g)?.[0] ?? topGif?.url;
-          content += `\nDein meistgesendetes GIF: ${url} (${topGif?.count}x)`;
+          if (topGif) {
+            const url = topGif?.plain_text.match(/(https?:\/\/[^\s]+)/g)?.[0] ?? topGif?.url;
+            content += `\nDein meistgesendetes GIF: ${url} (${topGif?.count}x)`;
+          }
         } catch (e) {}
         // msg.reply(new MessageAttachment(buffer, `SUUNCORD-Recap_${member}.png`));
         await msg.reply({
@@ -465,8 +471,8 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
   const allMentions = uniq([...sentMentions.map((m) => m.display_name), ...receivedMentions.map((m) => m.display_name)])
     .map((name) => ({
       display_name: name,
-      sent: Number(receivedMentions.find((m) => m.display_name === name)?.count) || 0,
-      received: Number(sentMentions.find((m) => m.display_name === name)?.count),
+      received: Number(receivedMentions.find((m) => m.display_name === name)?.count) || 0,
+      sent: Number(sentMentions.find((m) => m.display_name === name)?.count),
     }))
     .map((m) => ({ ...m, total: m.sent + m.received }))
     // sort descending
