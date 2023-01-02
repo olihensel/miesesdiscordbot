@@ -373,7 +373,7 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
     AND timestamp between $1 and $2 
     GROUP BY emote
     ORDER BY count(emote) desc
-    LIMIT ${showWordOfTheYear ? 5 : 7}`,
+    LIMIT ${showWordOfTheYear ? 5 : 5}`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostUsedReactions: { count: string; emote: string }[] = await connection.query(
@@ -385,7 +385,7 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT ${showWordOfTheYear ? 5 : 7}`,
+    LIMIT ${showWordOfTheYear ? 5 : 5}`,
     [rangeStartDate, rangeEndDate, userId],
   );
   const mostReceivedReaction: { count: string; emote: string }[] = await connection.query(
@@ -396,7 +396,7 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
     AND m.timestamp between $1 and $2
     GROUP BY r.emote
     ORDER BY count desc
-    LIMIT ${showWordOfTheYear ? 5 : 7}`,
+    LIMIT ${showWordOfTheYear ? 5 : 5}`,
     [rangeStartDate, rangeEndDate, userId],
   );
 
@@ -409,7 +409,7 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
           ORDER BY count(m.channel_id) desc) m
     LEFT JOIN discord_channel c on c.id = m.channel_id
     ORDER BY count desc
-    LIMIT ${showWordOfTheYear ? 5 : 7}`,
+    LIMIT ${showWordOfTheYear ? 5 : 5}`,
     [rangeStartDate, rangeEndDate, userId],
   );
 
@@ -439,6 +439,38 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
     )) as { date: string; count: number }[]
   ).map((entry) => ({ day: moment(entry.date).format('YYYY-MM-DD'), count: entry.count }));
 
+  const sentMentions: { count: string; display_name: string }[] = await connection.query(
+    `select u.id, u.display_name, count(u.id) as count from discord_message_mentions me
+    inner join discord_message m on me.discord_message_id = m.id
+    inner join discord_user u on me.discord_user_id = u.id
+    where from_id = $3 
+    AND timestamp between $1 and $2
+    GROUP BY u.id
+    order by count desc
+    LIMIT 100`,
+    [rangeStartDate, rangeEndDate, userId],
+  );
+  const receivedMentions: { count: string; display_name: string }[] = await connection.query(
+    `select u.id, u.display_name, count(u.id) as count from discord_message_mentions me
+    inner join discord_message m on me.discord_message_id = m.id
+    inner join discord_user u on m.from_id = u.id
+    where me.discord_user_id = $3 
+    AND timestamp between $1 and $2
+    GROUP BY u.id
+    order by count desc
+    LIMIT 100`,
+    [rangeStartDate, rangeEndDate, userId],
+  );
+
+  const allMentions = uniq([...sentMentions.map((m) => m.display_name), ...receivedMentions.map((m) => m.display_name)])
+    .map((name) => ({
+      display_name: name,
+      sent: Number(receivedMentions.find((m) => m.display_name === name)?.count) || 0,
+      received: Number(sentMentions.find((m) => m.display_name === name)?.count),
+    }))
+    .map((m) => ({ ...m, total: m.sent + m.received }))
+    // sort descending
+    .sort((a, b) => b.total - a.total);
   const activeDaysImage = await renderCalendar(activeDays);
 
   const browser = await chromium.launch({
@@ -667,6 +699,21 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
               ),
             )
           ).join('\n')}
+          </ol>
+        </div>
+        
+        <hr width="100%" />
+        
+        <div>
+          <span style="margin-bottom: 8px"><strong>Deine besten Gesprächspartner*innen</strong></span>
+          <ol style="margin: 0px; font-size: 2em;">
+          ${allMentions
+            .slice(0, 5)
+            .map(
+              (line) =>
+                `<li><span style="font-size: 0.5em; font-weight: bold;">${line.display_name}</span> <span style="font-size: 0.5em;">${line.total}x <i>(${line.sent}x gesendet, ${line.received}x empfangen)</i></span></li>`,
+            )
+            .join('\n')}
           </ol>
         </div>
         ${
