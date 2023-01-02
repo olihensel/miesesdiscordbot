@@ -472,7 +472,7 @@ export async function generateStats(userId: string, hideWordOfTheYear: boolean =
     .map((name) => ({
       display_name: name,
       received: Number(receivedMentions.find((m) => m.display_name === name)?.count) || 0,
-      sent: Number(sentMentions.find((m) => m.display_name === name)?.count),
+      sent: Number(sentMentions.find((m) => m.display_name === name)?.count) || 0,
     }))
     .map((m) => ({ ...m, total: m.sent + m.received }))
     // sort descending
