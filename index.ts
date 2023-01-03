@@ -1,20 +1,34 @@
 require('dotenv').config();
 import { createHash } from 'crypto';
-import { Client, GuildChannel, Intents, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, GuildChannel, TextChannel } from 'discord.js';
 import { appendFileSync } from 'fs';
 import { compact, head, orderBy, uniq } from 'lodash';
 import moment from 'moment';
 
 const logfile = './history.jsonlist';
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.GuildMessageTyping,
+    GatewayIntentBits.MessageContent,
+  ],
+});
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
   const startOfDay = moment().startOf('day');
   const minDateFullRange = moment(startOfDay).subtract(2, 'weeks');
   const minDataCurrentRange = moment(startOfDay).subtract(1, 'day');
-  console.log({ startOfDay: startOfDay.format(), minDateFullRange: minDateFullRange.format(), minDataCurrentRange: minDataCurrentRange.format() });
+  console.log({
+    startOfDay: startOfDay.format(),
+    minDateFullRange: minDateFullRange.format(),
+    minDataCurrentRange: minDataCurrentRange.format(),
+  });
 
   const secondsFullRange = minDataCurrentRange.unix() - minDateFullRange.unix();
   const secondsCurrentRange = moment(startOfDay).unix() - minDataCurrentRange.unix();
@@ -39,9 +53,9 @@ client.on('ready', async () => {
         channel,
         parentPos: (!channel.parent?.parent && channel.parent?.position) || 99999999,
         position: (channel as GuildChannel).position,
-        hasWritePermission: channel.permissionsFor(user)?.has('SEND_MESSAGES') ?? false,
+        hasWritePermission: channel.permissionsFor(user)?.has('SendMessages') ?? false,
         rawPosition: (channel as GuildChannel).rawPosition,
-        isText: channel.isText(),
+        isText: channel.isTextBased(),
         isThread: channel.isThread(),
       }));
 
@@ -50,20 +64,20 @@ client.on('ready', async () => {
         ['rawPosition'],
       );
       // isThread is false!, isText is true
-      const allgeschwein = channelsWithPos.find(c => c.channel?.id === '717034183465107459')?.channel as TextChannel;
-      channelToSendTo = allgeschwein || orderedChannels[0]?.channel as TextChannel;
+      const allgeschwein = channelsWithPos.find((c) => c.channel?.id === '717034183465107459')?.channel as TextChannel;
+      channelToSendTo = allgeschwein || (orderedChannels[0]?.channel as TextChannel);
       console.log(channelToSendTo);
     }
-    
+
     if (!channelToSendTo) {
       console.log('no suitable channel found');
       continue;
     }
     const seenMessageHashes = new Set<string>();
     for (const [, channel] of await guild.channels.cache) {
-      console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isText(), channel.isThread());
+      console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isTextBased(), channel.isThread());
 
-      if (channel.isText()) {
+      if (channel.isTextBased()) {
         const limit = 100;
         let lastLength = limit;
         let lastOldest: string | undefined;
@@ -83,7 +97,14 @@ client.on('ready', async () => {
                 lastOldest = message.id;
                 lastOldestDate = message.createdAt;
                 let isDuplicateMessage = false;
-                const messageHash = createHash('sha256').update(`${moment(message.createdAt).format('YYYY-MM-DD')}-${message.author.id}-${message.content.toLowerCase().trim().replace(/\ \ /g, ' ')}`).digest('base64');
+                const messageHash = createHash('sha256')
+                  .update(
+                    `${moment(message.createdAt).format('YYYY-MM-DD')}-${message.author.id}-${message.content
+                      .toLowerCase()
+                      .trim()
+                      .replace(/\ \ /g, ' ')}`,
+                  )
+                  .digest('base64');
                 if (seenMessageHashes.has(messageHash)) {
                   console.log('duplicate hash, ignoring words', message.content, messageHash);
                   isDuplicateMessage = true;
@@ -101,9 +122,23 @@ client.on('ready', async () => {
                 // add to map depending on date range
                 if (moment(message.createdAt).isBefore(startOfDay)) {
                   if (moment(message.createdAt).isAfter(minDataCurrentRange)) {
-                    analyze(sanitizedMessageContent, reactions, wordMapCurrentRange, emoteMapCurrentRange, reactionMapCurrentRange, isDuplicateMessage);
+                    analyze(
+                      sanitizedMessageContent,
+                      reactions,
+                      wordMapCurrentRange,
+                      emoteMapCurrentRange,
+                      reactionMapCurrentRange,
+                      isDuplicateMessage,
+                    );
                   } else {
-                    analyze(sanitizedMessageContent, reactions, wordMapFullRange, emoteMapFullRange, reactionMapFullRange, isDuplicateMessage);
+                    analyze(
+                      sanitizedMessageContent,
+                      reactions,
+                      wordMapFullRange,
+                      emoteMapFullRange,
+                      reactionMapFullRange,
+                      isDuplicateMessage,
+                    );
                   }
                 }
               }
@@ -130,16 +165,19 @@ client.on('ready', async () => {
 
     const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}
 
-- Wort des Tages: ${(topWordNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordNewcomer?.text} (${topWordNewcomer?.inCurrentRange}x)` : '*keines*'
-      }
+- Wort des Tages: ${
+      (topWordNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordNewcomer?.text} (${topWordNewcomer?.inCurrentRange}x)` : '*keines*'
+    }
 - Emote des Tages: ${(topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'}
-- Emote-Newcomer des Tages: ${(topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topEmoteNewcomer?.text} (${topEmoteNewcomer?.inCurrentRange}x)` : '*keines*'
-      }
+- Emote-Newcomer des Tages: ${
+      (topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topEmoteNewcomer?.text} (${topEmoteNewcomer?.inCurrentRange}x)` : '*keines*'
+    }
 - Reaction des Tages: ${(topReaction?.inCurrentRange ?? 0) > 1 ? `${topReaction?.text} (${topReaction?.inCurrentRange}x)` : '*keines*'}
-- Reaction-Newcomer des Tages: ${(topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
+- Reaction-Newcomer des Tages: ${
+      (topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
         ? `${topReactionNewcomer?.text} (${topReactionNewcomer?.inCurrentRange}x)`
         : '*keines*'
-      }
+    }
 
 <:peepoQuatsch:875141585224994837>`;
     console.log(message);
