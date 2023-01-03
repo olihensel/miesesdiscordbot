@@ -262,3 +262,17 @@ AND c.id IN (
 GROUP BY c.display_name, c.id
 ORDER BY avg_per_day DESC
 LIMIT 50
+
+-- get all messages from a channel aggragated in a single message
+select m.channel, string_agg(m.text::character varying, E'\n' order by m.timestamp) from 
+(
+  select m.timestamp, c.display_name as channel, concat(m.timestamp, ' - ', u.display_name, ': ', m.plain_text) as text
+  from discord_message m
+  inner join discord_channel c on c.id = m.channel_id
+  inner join discord_user u on u.id = m.from_id
+  where timestamp between '2022-12-31' and '2023-01-01'
+  AND length(m.plain_text) > 0
+  order by m.channel_id asc, m.id asc
+) m
+group by m.channel
+order by m.channel asc
