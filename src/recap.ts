@@ -1051,7 +1051,7 @@ function replaceEmotesInHtml(message: string): string {
     emotes = compact(emotes);
   }
   for (const emote of emotes) {
-    message = message.replace(
+    message = message.replaceAll(
       emote.tag,
       `<img src="https://cdn.discordapp.com/emojis/${emote.id}.png" style="width: 1em; height: 1em;" />`,
     );

@@ -30,3 +30,14 @@ services:
       ADMINER_DEFAULT_SERVER: postgres
     ports:
       - 3001:8080
+  spacyapi:
+    # git clone git@github.com:fpompermaier/spacy-api-docker.git && cd spacy-api-docker
+    # docker build -t spacy-api-docker:base .
+    # # replace the base in docker/de/Dockerfile with spacy-api-docker:base
+    # docker build -t spacy-api-docker:de -f docker/de/Dockerfile .
+
+    #image: spacy-api-docker:de
+    image: bbieniek/spacyapi:de_v3
+    ports:
+      - '46464:80'
+    restart: always
