@@ -29,7 +29,7 @@ const client = new Client({
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client?.user?.tag}!`);
-  const startOfDay = moment().add(1, 'day').startOf('day');
+  const startOfDay = moment().startOf('day');
   const minDateFullRange = moment(startOfDay).subtract(2, 'weeks');
   const minDataCurrentRange = moment(startOfDay).subtract(1, 'day');
   console.log({
