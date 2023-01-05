@@ -971,9 +971,7 @@ function formatMostReactedMessage(dcMessage: Message<boolean> | undefined, mostR
           <br />
           <br />
           <span style="overflow-wrap: break-word; word-wrap: break-word; ">"${
-            dcMessage?.type === MessageType.UserJoin
-              ? 'ist dem Server beigetreten.'
-              : mostReactedMessageDb?.plainText || '-- Kein Inhalt --'
+            dcMessage?.type === MessageType.UserJoin ? 'ist dem Server beigetreten.' : mostReactedMessageDb?.plainText || '-- Kein Text --'
           }"<i> am ${moment(mostReactedMessageDb?.timestamp).format('DD.MM.YYYY')} um ${moment(mostReactedMessageDb?.timestamp).format(
     'HH:mm',
   )}${
