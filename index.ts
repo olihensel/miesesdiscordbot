@@ -199,17 +199,35 @@ client.on('ready', async () => {
     }
 
     writeFileSync(`data/daily/${guild.name}_${moment(startOfDay).subtract(1, 'day').format('YYYY-MM-DD')}_chatlog.json`, wholeDayMessage);
+    type WordResp = {
+      text: string;
+      lemma: string;
+      norm: string;
+      lower: string;
+      sentiment: string;
+      ent_type: string;
+      pos: string;
+      tag: string;
+      dep: string;
+      head: string;
+      is_alpha: string;
+      is_digit: string;
+      is_stop: string;
+      is_punct: string;
+      is_url: string;
+      is_num: string;
+      is_email: string;
+      language: string;
+    };
+
     const spacyResp = await axios.post<
       {
         sentence: string;
-        dep_parse: {
-          arcs: { dir: string; end: number; label: string; start: number; text: string }[];
-          words: { tag: string; text: string }[];
-        };
+        words: WordResp[];
       }[]
-    >('http://localhost:46464/sents_dep', { model: 'de_core_news_sm', text: wholeDayMessage });
+    >('http://localhost:46464/all_pos', { model: 'de_core_news_sm', text: wholeDayMessage });
     const additionalStopWords = ['ne', 'ja', userPlaceholder, channelPlaceholder].map((w) => w.toLowerCase());
-    const allWords = spacyResp.data.flatMap((s) => s.dep_parse.words);
+    const allWords = spacyResp.data.flatMap((s) => s.words);
 
     writeFileSync(
       `data/daily/${guild.name}_${moment(startOfDay).subtract(1, 'day').format('YYYY-MM-DD')}_allwords.json`,
@@ -217,8 +235,22 @@ client.on('ready', async () => {
     );
     const allNouns = allWords
       .filter((w) => ['NE', 'NN', 'NNE', 'ITJ', 'ADJA', 'ADJD'].includes(w.tag))
-      .map((w) => w.text)
-      .filter((n) => n.length > 1 && !additionalStopWords.includes(n.toLowerCase()));
+      .reduce(
+        // map to text of first occurence of lemma
+        (acc, next) => {
+          if (acc.lemmas.has(next.lemma)) {
+            acc.nouns.push(acc.lemmas.get(next.lemma)?.text || next.text);
+            return acc;
+          }
+          acc.lemmas.set(next.lemma, next);
+          acc.nouns.push(next.text);
+          return acc;
+        },
+        { nouns: [] as string[], lemmas: new Map<string, WordResp>() },
+      )
+      .nouns.filter((n) => n.length > 1 && !additionalStopWords.includes(n.toLowerCase()));
+
+    //
 
     writeFileSync(
       `data/daily/${guild.name}_${moment(startOfDay).subtract(1, 'day').format('YYYY-MM-DD')}_allnouns.json`,
@@ -424,6 +456,7 @@ async function createWordCloud(words: string[]) {
 }
 client.login(process.env.DISCORD_BOT_TOKEN);
 
+// no typescript types :Sadge:
 const { Container } = require('@nlpjs/core');
 const { SentimentAnalyzer } = require('@nlpjs/sentiment');
 const { LangDe } = require('@nlpjs/lang-de');
