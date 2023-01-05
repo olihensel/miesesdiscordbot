@@ -126,7 +126,7 @@ client.on('ready', async () => {
                 // allow minimally negative messages
                 if (sentiment.average > -0.02) {
                   // add to complete chatlog for wordcloud
-                  channelMessage += analyzableMsg + '\n';
+                  channelMessage = analyzableMsg + '\n' + channelMessage;
 
                   // update message with most reactions
                   const reactionCount = reactions.reduce((acc, cur) => acc + cur.count, 0);
