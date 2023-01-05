@@ -1,9 +1,12 @@
 require('dotenv').config();
+import axios from 'axios';
+import { execSync } from 'child_process';
 import { createHash } from 'crypto';
-import { Client, GatewayIntentBits, GuildChannel, TextChannel } from 'discord.js';
-import { appendFileSync } from 'fs';
-import { compact, head, orderBy, uniq } from 'lodash';
+import { AttachmentBuilder, Client, GatewayIntentBits, GuildChannel, Message, MessageType, TextChannel } from 'discord.js';
+import { appendFileSync, readFileSync, writeFileSync } from 'fs';
+import { compact, head, orderBy, shuffle, uniq } from 'lodash';
 import moment from 'moment';
+import { render } from './render';
 
 const logfile = './history.jsonlist';
 
@@ -66,7 +69,7 @@ client.on('ready', async () => {
       // isThread is false!, isText is true
       const allgeschwein = channelsWithPos.find((c) => c.channel?.id === '717034183465107459')?.channel as TextChannel;
       channelToSendTo = allgeschwein || (orderedChannels[0]?.channel as TextChannel);
-      console.log(channelToSendTo);
+      console.log('channelToSendTo', channelToSendTo.name);
     }
 
     if (!channelToSendTo) {
@@ -74,6 +77,9 @@ client.on('ready', async () => {
       continue;
     }
     const seenMessageHashes = new Set<string>();
+    let wholeDayMessage = '';
+    let messageWithMostReactions: { msg: Message<true>; count: number } | undefined;
+
     for (const [, channel] of await guild.channels.cache) {
       console.log(`${guild.name} => ${channel.id} | ${channel.name}`, channel.isTextBased(), channel.isThread());
 
@@ -82,6 +88,7 @@ client.on('ready', async () => {
         let lastLength = limit;
         let lastOldest: string | undefined;
         let lastOldestDate: Date | undefined;
+        let channelMessage = '';
         while (lastLength >= limit) {
           try {
             const messages = await channel.messages.fetch({ limit, ...(lastOldest ? { before: lastOldest } : {}) });
@@ -92,6 +99,11 @@ client.on('ready', async () => {
                 continue;
               }
               seenMessages.add(message.id);
+
+              if (moment(message.createdAt).isAfter(minDataCurrentRange) && moment(message.createdAt).isBefore(startOfDay)) {
+                // TODO: sentiment analysis
+                channelMessage += message.cleanContent.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '') + '\n';
+              }
               if (moment(message.createdAt).isAfter(minDateFullRange)) {
                 count++;
                 lastOldest = message.id;
@@ -118,6 +130,12 @@ client.on('ready', async () => {
                   count: reactionInfo.count,
                 }));
 
+                if (moment(message.createdAt).isAfter(minDataCurrentRange) && moment(message.createdAt).isBefore(startOfDay)) {
+                  const reactionCount = reactions.reduce((acc, cur) => acc + cur.count, 0);
+                  if (!messageWithMostReactions || reactionCount > messageWithMostReactions.count) {
+                    messageWithMostReactions = { msg: message, count: reactionCount };
+                  }
+                }
                 const sanitizedMessageContent = message.content.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
                 // add to map depending on date range
                 if (moment(message.createdAt).isBefore(startOfDay)) {
@@ -149,8 +167,34 @@ client.on('ready', async () => {
             lastLength = 0;
           }
         }
+
+        if (channelMessage.length > 0) {
+          // wholeDayMessage += `Channel: ${channel.name}\n`;
+          wholeDayMessage += channelMessage;
+          wholeDayMessage += '\n\n';
+        }
       }
     }
+
+    wholeDayMessage = replaceEmotes(wholeDayMessage);
+
+    const spacyResp = await axios.post<
+      {
+        sentence: string;
+        dep_parse: {
+          arcs: { dir: string; end: number; label: string; start: number; text: string }[];
+          words: { tag: string; text: string }[];
+        };
+      }[]
+    >('http://localhost:46464/sents_dep', { model: 'de_core_news_sm', text: wholeDayMessage });
+    const additionalStopWords = ['ne', 'ja'];
+    const allNouns = spacyResp.data
+      .flatMap((s) => s.dep_parse.words)
+      .filter((w) => ['NE', 'NN'].includes(w.tag))
+      .map((w) => w.text)
+      .filter((n) => n.length > 1 && !additionalStopWords.includes(n.toLowerCase()));
+
+    const wordCloudBuff = await createWordCloud(allNouns);
     const emoteFactors = calculateFactorsForUsageMaps(emoteMapCurrentRange, emoteMapFullRange, currentRangesInFullRange);
     const wordFactors = calculateFactorsForUsageMaps(wordMapCurrentRange, wordMapFullRange, currentRangesInFullRange);
     const reactionsFactors = calculateFactorsForUsageMaps(reactionMapCurrentRange, reactionMapFullRange, currentRangesInFullRange);
@@ -163,6 +207,50 @@ client.on('ready', async () => {
     const topWord = head(orderBy(wordFactors, 'inCurrentRange', 'desc'));
     const topReaction = head(orderBy(reactionsFactors, 'inCurrentRange', 'desc'));
 
+    const renderedQuatschOfTheDayBuffer = await render(wordCloudBuff, {
+      day: moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY'),
+      awards: [
+        `Wort des Tages: ${
+          (topWordNewcomer?.increaseFactorAverage ?? 0) > 1 ? `${topWordNewcomer?.text} (${topWordNewcomer?.inCurrentRange}x)` : '*keines*'
+        }`,
+        `Emote des Tages: ${(topEmote?.inCurrentRange ?? 0) > 1 ? `${topEmote?.text} (${topEmote?.inCurrentRange}x)` : '*keines*'}`,
+        `Emote-Newcomer des Tages: ${
+          (topEmoteNewcomer?.increaseFactorAverage ?? 0) > 1
+            ? `${topEmoteNewcomer?.text} (${topEmoteNewcomer?.inCurrentRange}x)`
+            : '*keines*'
+        }`,
+        `Reaction des Tages: ${
+          (topReaction?.inCurrentRange ?? 0) > 1 ? `${topReaction?.text} (${topReaction?.inCurrentRange}x)` : '*keines*'
+        }`,
+        `Reaction-Newcomer des Tages: ${
+          (topReactionNewcomer?.increaseFactorAverage ?? 0) > 1
+            ? `${topReactionNewcomer?.text} (${topReactionNewcomer?.inCurrentRange}x)`
+            : '*keines*'
+        }`,
+        ...(messageWithMostReactions
+          ? [
+              `Nachricht des Tages mit den meisten Reaktionen: ${
+                messageWithMostReactions.msg.member?.nickname ?? messageWithMostReactions.msg.author.username
+              } - <i>"${
+                messageWithMostReactions.msg?.type === MessageType.UserJoin
+                  ? 'ist dem Server beigetreten.'
+                  : messageWithMostReactions.msg.cleanContent || '-- Kein Text --'
+              }"</i> in ${messageWithMostReactions.msg.channel.name} (${messageWithMostReactions.count}x) <br />${
+                [
+                  ...(messageWithMostReactions.msg?.attachments
+                    ?.filter((a) => a.contentType?.startsWith('image') ?? false)
+                    ?.map((a) => a.url) ?? []),
+                  ...(messageWithMostReactions.msg?.embeds?.map((e) => e.image?.url ?? e.thumbnail?.url) ?? []),
+                ]
+                  ?.map((url) => `<img src="${url}" style="max-height: 100px; max-width: 100px; margin: 3px;" />`)
+                  ?.join('') ?? ''
+              }`,
+            ]
+          : []),
+      ],
+    });
+
+    /*
     const message = `Quatsch des Tages für ${moment(startOfDay).subtract(1, 'day').format('DD.MM.YYYY')}
 
 - Wort des Tages: ${
@@ -181,8 +269,17 @@ client.on('ready', async () => {
 
 <:peepoQuatsch:875141585224994837>`;
     console.log(message);
+    */
+    writeFileSync(`data/daily/${guild.name}_${moment().format('YYYY-MM-DD')}_message.png`, renderedQuatschOfTheDayBuffer);
 
-    await channelToSendTo.send(message);
+    // send renderedQuatschOfTheDayBuffer to channelToSendTo
+
+    const builder = new AttachmentBuilder(renderedQuatschOfTheDayBuffer, {
+      name: `Quatsch-des-Tages_${moment().format('YYYY-MM-DD')}.png`,
+    });
+    const sentMessage = await channelToSendTo.send({ files: [builder] });
+    console.log('sentMessage', sentMessage);
+
     appendFileSync(
       logfile,
       JSON.stringify({
@@ -200,6 +297,27 @@ client.on('ready', async () => {
   }
   client.destroy();
 });
+
+function replaceEmotes(message: string): string {
+  const emoteRegex = /<a?:([a-zA-Z0-9_~\-+]+):(\d+)>/g;
+  let match;
+  let emotes: { tag: string; name: string; id: string }[] = [];
+  while ((match = emoteRegex.exec(message))) {
+    emotes.push({ tag: match[0], name: match[1], id: match[2] });
+  }
+  if (emotes) {
+    emotes = compact(emotes);
+  }
+  for (const emote of emotes) {
+    message = message.replaceAll(
+      emote.tag,
+      '',
+      //emote.name,
+      // `<img src="https://cdn.discordapp.com/emojis/${emote.id}.png" style="width: 1em; height: 1em;" />`,
+    );
+  }
+  return message;
+}
 
 function calculateFactorsForUsageMaps(
   mapCurrentRange: Map<string, number>,
@@ -262,4 +380,15 @@ function analyze(
     reactionMap.set(reaction.key, (reactionMap.get(reaction.key) ?? 0) + reaction.count);
   }
 }
+
+// NOTE: mustnot be called in parallel!
+async function createWordCloud(words: string[]) {
+  await writeFileSync('data/words.txt', shuffle(words).join(' '));
+  await execSync(
+    'wordcloud_cli --text data/words.txt --imagefile data/wordcloud.png --width 540 --height 540 --margin 5 --scale 2 --max_words 50 --include_numbers --relative_scaling 1 --min_font_size 8 --fontfile ./unicode.impact.ttf --mode RGBA --colormap tab20b --background "#00000000"',
+  );
+  // console.log({ stdout, stderr });
+  return await readFileSync('data/wordcloud.png');
+}
+
 client.login(process.env.DISCORD_BOT_TOKEN);

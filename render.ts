@@ -33,11 +33,10 @@ export async function render(wordcloud: Buffer, config: { day: string; awards: s
     <body>
     <div style="display: flex; width: 100%; height: 100%; justify-content: space-between;">
       <div style="flex: 1; width: auto; height: 100%; overflow: auto; font-size: 2.8em;">
-        <span style="font-size: 1.5em; font-weight: bold;">Quatsch des Tages für den ${config.day}</span>
+        <span style="font-size: 1.5em; font-weight: bold;">Quatsch des Tages für den ${config.day} <:peepoQuatsch:875141585224994837></span>
         <ul>
-          ${config.awards.map((a) => `<li>${a}</li>`).join('')}
+          ${config.awards.map((a) => `<li style="margin-bottom: 2px;">${a}</li>`).join('')}
         </ul>
-        <:peepoQuatsch:875141585224994837>
       </div>
       <div style="flex: 1; width: 99vh; height: 100vh;">
         <img src="${wordcloudDataUri}" alt="Wordcloud" style="width: 100vh; height: 100vh; object-fit: contain;">
