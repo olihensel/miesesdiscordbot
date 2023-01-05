@@ -322,8 +322,8 @@ client.on('ready', async () => {
     const builder = new AttachmentBuilder(renderedQuatschOfTheDayBuffer, {
       name: `Quatsch-des-Tages_${moment(startOfDay).subtract(1, 'day').format('YYYY-MM-DD')}.png`,
     });
-    // const sentMessage = await channelToSendTo.send({ files: [builder] });
-    // console.log('sentMessage', sentMessage);
+    const sentMessage = await channelToSendTo.send({ files: [builder] });
+    console.log('sentMessage', sentMessage);
 
     appendFileSync(
       logfile,
