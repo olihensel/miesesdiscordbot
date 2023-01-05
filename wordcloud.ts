@@ -198,7 +198,7 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 async function createWordCloud(words: string[]) {
   await writeFileSync('data/words.txt', shuffle(words).join(' '));
   await execSync(
-    'wordcloud_cli --text data/words.txt --imagefile data/wordcloud.png --width 540 --height 540 --margin 5 --scale 2 --max_words 50 --include_numbers --relative_scaling 1 --min_font_size 8 --fontfile ./unicode.impact.ttf --mode RGBA --colormap tab20 --background "#00000000"',
+    '/usr/local/bin/wordcloud_cli --text data/words.txt --imagefile data/wordcloud.png --width 540 --height 540 --margin 5 --scale 2 --max_words 50 --include_numbers --relative_scaling 1 --min_font_size 8 --fontfile ./unicode.impact.ttf --mode RGBA --colormap tab20 --background "#00000000"',
   );
   // console.log({ stdout, stderr });
   return await readFileSync('data/wordcloud.png');
