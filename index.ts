@@ -449,7 +449,7 @@ async function createWordCloud(words: string[]) {
   console.log('creating wordcloud with', words.length, 'words');
   await writeFileSync('data/words.txt', shuffle(words).join(' '));
   await execSync(
-    '/usr/local/bin/wordcloud_cli --text data/words.txt --imagefile data/wordcloud.png --width 540 --height 540 --margin 5 --scale 2 --max_words 50 --include_numbers --relative_scaling 0.5 --min_font_size 8 --fontfile ./unicode.impact.ttf --mode RGBA --colormap tab20 --background "#00000000" --regexp "[\\w@\\#][\\w\']+"',
+    '/usr/local/bin/wordcloud_cli --text data/words.txt --imagefile data/wordcloud.png --width 540 --height 540 --margin 5 --scale 2 --max_words 50 --include_numbers --relative_scaling 0.4 --min_font_size 8 --fontfile ./unicode.impact.ttf --mode RGBA --colormap tab20 --background "#00000000" --regexp "[\\w@\\#][\\w\']+"',
   );
   // console.log({ stdout, stderr });
   return await readFileSync('data/wordcloud.png');
