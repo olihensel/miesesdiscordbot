@@ -13,6 +13,9 @@
   "author": "olihensel",
   "license": "UNLICENSED",
   "dependencies": {
+    "@nlpjs/core": "^4.25.0",
+    "@nlpjs/lang-de": "^4.25.0",
+    "@nlpjs/sentiment": "^4.25.0",
     "@types/axios": "^0.14.0",
     "@types/dotenv": "^8.2.0",
     "@types/faker": "^5.5.8",
@@ -42,6 +45,7 @@
     "playwright": "^1.17.1",
     "prettier": "^2.4.0",
     "reflect-metadata": "^0.1.10",
+    "replace-emoji": "^1.1.3-0",
     "type-fest": "^3.3.0",
     "typeorm": "0.2.41",
     "typeorm-naming-strategies": "^2.0.0",

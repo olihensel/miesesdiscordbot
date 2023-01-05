@@ -1,15 +1,15 @@
 version: '3.3'
 
 services:
-  grafana:
-    image: grafana/grafana-oss:8.3.3-ubuntu
-    container_name: grafana
-    ports:
-      - 3000:3000
-    links:
-      - postgres
-    volumes:
-      - './data/grafana:/var/lib/grafana'
+  # grafana:
+  #   image: grafana/grafana-oss:8.3.3-ubuntu
+  #   container_name: grafana
+  #   ports:
+  #     - 3000:3000
+  #   links:
+  #     - postgres
+  #   volumes:
+  #     - './data/grafana:/var/lib/grafana'
   postgres:
     image: postgres:14.1-bullseye
     container_name: postgres
@@ -36,8 +36,13 @@ services:
     # # replace the base in docker/de/Dockerfile with spacy-api-docker:base
     # docker build -t spacy-api-docker:de -f docker/de/Dockerfile .
 
-    #image: spacy-api-docker:de
-    image: bbieniek/spacyapi:de_v3
+    image: spacy-api-docker:de
+    #image: bbieniek/spacyapi:de_v3
+    environment:
+      API_PORT: 46464
+      PORT: 9000
     ports:
-      - '46464:80'
+      #  - '46464:80'
+      - '9000:9000'
+      - '46464:8000'
     restart: always
