@@ -474,6 +474,8 @@ function analyze(
 
 // NOTE: mustnot be called in parallel!
 async function createWordCloud(words: string[]) {
+  // remove words that are too long. if they are shorter than 8 chars, none should be removed. from 9 on the probability of a word being removed increases linearly up to 30 chars, where it is 100%.
+  words = words.filter((w) => w.length < 8 || Math.random() < 1 - (w.length - 8) / 22);
   console.log('creating wordcloud with', words.length, 'words');
   await writeFileSync('data/words.txt', shuffle(words).join(' '));
   await execSync(
