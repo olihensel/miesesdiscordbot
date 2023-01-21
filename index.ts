@@ -2,7 +2,17 @@ require('dotenv').config();
 import axios from 'axios';
 import { execSync } from 'child_process';
 import { createHash } from 'crypto';
-import { AttachmentBuilder, Client, GatewayIntentBits, GuildChannel, Message, MessageType, TextChannel } from 'discord.js';
+import {
+  AttachmentBuilder,
+  Channel,
+  ChannelType,
+  Client,
+  GatewayIntentBits,
+  GuildChannel,
+  Message,
+  MessageType,
+  TextChannel,
+} from 'discord.js';
 import { appendFileSync, readFileSync, writeFileSync } from 'fs';
 import { compact, head, orderBy, pick, shuffle, uniq } from 'lodash';
 import moment from 'moment';
@@ -105,9 +115,9 @@ client.on('ready', async () => {
                   continue;
                 }
                 seenMessages.add(message.id);
-                let analyzableMsg = message.cleanContent.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
-                // let analyzableMsg = message.content.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
-                // analyzableMsg = replaceMentionsAndChannels(analyzableMsg, userPlaceholder, channelPlaceholder);
+                // let analyzableMsg = message.cleanContent.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
+                let analyzableMsg = message.content.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
+                analyzableMsg = replaceMentionsAndChannels(analyzableMsg, channel);
                 analyzableMsg = replaceEmotes(analyzableMsg);
                 analyzableMsg = analyzableMsg.replaceAll('\n', '. ');
                 analyzableMsg = replaceEmoji(analyzableMsg, '') as string;
@@ -349,16 +359,28 @@ client.on('ready', async () => {
   client.destroy();
 });
 
-function replaceMentionsAndChannels(message: string, userPlaceholder: string, channelPlaceholder: string): string {
+function replaceMentionsAndChannels(message: string, channel: Channel): string {
   return message.replaceAll(/<(@[!&]?|#)(\d{17,19})>/g, (match, type, id) => {
     switch (type) {
       case '@':
-      case '@!':
+      case '@!': {
+        if (channel.type === ChannelType.DM || channel.type === ChannelType.GroupDM) return match;
+        const member = channel.guild?.members.cache.get(id);
+        if (member) {
+          return `@${member.displayName.replaceAll(/\s/g, '_')}`;
+        }
+
+        const user = channel.client.users.cache.get(id);
+        return user ? `@${user.username.replaceAll(/\s/g, '_')}` : match;
+      }
       case '@&': {
-        return userPlaceholder;
+        if (channel.type === ChannelType.DM || channel.type === ChannelType.GroupDM) return match;
+        const role = channel.guild.roles.cache.get(id);
+        return role ? `@${role.name}` : match;
       }
       case '#': {
-        return channelPlaceholder;
+        const mentionedChannel = channel.client.channels.cache.get(id);
+        return mentionedChannel && mentionedChannel.type !== ChannelType.DM ? `#${mentionedChannel.name}` : match;
       }
       default: {
         return match;
