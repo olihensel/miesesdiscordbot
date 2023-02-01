@@ -317,7 +317,7 @@ client.on('ready', async () => {
                       ?.map((a) => a.url) ?? []),
                     ...(messageWithMostReactions.msg?.embeds?.map((e) => e.image?.url ?? e.thumbnail?.url) ?? []),
                   ]
-                    ?.map((url) => `<img src="${url}" style="max-height: 100px; max-width: 100px; margin: 3px;" />`)
+                    ?.map((url) => `<img src="${url}" style="max-height: 200px; max-width: 200px; margin: 3px;" />`)
                     ?.join('') ?? ''
                 }`,
               ]
@@ -476,6 +476,7 @@ function analyze(
 async function createWordCloud(words: string[]) {
   // remove words that are too long. if they are shorter than 8 chars, none should be removed. from 9 on the probability of a word being removed increases linearly up to 30 chars, where it is 100%.
   words = words.filter((w) => w.length < 8 || Math.random() < 1 - (w.length - 8) / 22);
+
   console.log('creating wordcloud with', words.length, 'words');
   await writeFileSync('data/words.txt', shuffle(words).join(' '));
   await execSync(
