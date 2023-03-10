@@ -2,7 +2,17 @@ require('dotenv').config();
 import axios from 'axios';
 import { execSync } from 'child_process';
 import { createHash } from 'crypto';
-import { Channel, ChannelType, Client, GatewayIntentBits, GuildChannel, Message, MessageType, TextChannel } from 'discord.js';
+import {
+  AttachmentBuilder,
+  Channel,
+  ChannelType,
+  Client,
+  GatewayIntentBits,
+  GuildChannel,
+  Message,
+  MessageType,
+  TextChannel,
+} from 'discord.js';
 import { appendFileSync, readFileSync, writeFileSync } from 'fs';
 import { compact, head, orderBy, pick, shuffle, uniq } from 'lodash';
 import moment from 'moment';
