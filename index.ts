@@ -2,17 +2,7 @@ require('dotenv').config();
 import axios from 'axios';
 import { execSync } from 'child_process';
 import { createHash } from 'crypto';
-import {
-  AttachmentBuilder,
-  Channel,
-  ChannelType,
-  Client,
-  GatewayIntentBits,
-  GuildChannel,
-  Message,
-  MessageType,
-  TextChannel,
-} from 'discord.js';
+import { Channel, ChannelType, Client, GatewayIntentBits, GuildChannel, Message, MessageType, TextChannel } from 'discord.js';
 import { appendFileSync, readFileSync, writeFileSync } from 'fs';
 import { compact, head, orderBy, pick, shuffle, uniq } from 'lodash';
 import moment from 'moment';
@@ -310,7 +300,22 @@ client.on('ready', async () => {
                   messageWithMostReactions.msg?.type === MessageType.UserJoin
                     ? 'ist dem Server beigetreten.'
                     : messageWithMostReactions.msg.cleanContent || '-- Kein Text --'
-                }"</i> in #${messageWithMostReactions.msg.channel.name} (${messageWithMostReactions.count}x) <br />${
+                }"</i> in #${messageWithMostReactions.msg.channel.name}
+                <br />
+                <span style="line-height: 170%">
+                ${
+                  messageWithMostReactions.msg?.reactions.cache
+                    .map(
+                      (r) =>
+                        `<span class="top-message-reaction" style="">${r.count}x&nbsp;${
+                          r.emoji.id ? `<:${r.emoji.name}:${r.emoji.id}>` : r.emoji.name
+                        }</span>`,
+                    )
+                    .join('') ?? ''
+                }
+                </span>
+                <br />
+                ${
                   [
                     ...(messageWithMostReactions.msg?.attachments
                       ?.filter((a) => a.contentType?.startsWith('image') ?? false)

@@ -28,6 +28,17 @@ export async function render(wordcloud: Buffer, config: { day: string; awards: s
         color: #ddd;
         padding: 5px;
       }
+      .top-message-reaction {
+        background-color: #444;
+        border-radius: 3px;
+        padding: 4px 3px 2px 3px;
+        margin: 3px;
+        white-space: nowrap;
+      }
+      .top-message-reaction img {
+        margin-top: 3px;
+        margin-bottom: -3px;
+      }
     </style>
   </head>
     <body>
